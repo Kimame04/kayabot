@@ -86,7 +86,7 @@ def encode_multipart_form(
 def format_discord_payload(
     row: Dict[str, Any],
     bot_name: str = "Kaya",
-    author_name: str = "Kyan's Journal",
+    author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
     max_desc_length: int = 4000,
     attachment_filename: Optional[str] = None,
@@ -95,7 +95,7 @@ def format_discord_payload(
     """
     Construct a JSON-serializable Discord webhook payload featuring a rich embed.
     Safely handles string truncation, ISO-8601 timestamps, tags, circadian colors,
-    and edge-to-edge media rendering.
+    and edge-to-edge media rendering without redundant title headers.
     """
     raw_text = str(row.get("text") or "").strip()
     has_photo = bool(attachment_filename or row.get("has_photo") or row.get("media_type") == "photo")
@@ -164,7 +164,6 @@ def format_discord_payload(
 
     embed: Dict[str, Any] = {
         "author": author_dict,
-        "title": "📓 Journal Reflection",
         "color": color,
         "footer": {
             "text": footer_text,
@@ -197,7 +196,7 @@ def send_discord_relay(
     filename: Optional[str] = None,
     media_warning: Optional[str] = None,
     bot_name: str = "Kaya",
-    author_name: str = "Kyan's Journal",
+    author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
     timeout: int = 15,
 ) -> bool:
@@ -323,7 +322,7 @@ def queue_pending_relay(row: Dict[str, Any], media_warning: Optional[str] = None
 def flush_pending_relays(
     webhook_url: Optional[str],
     bot_name: str = "Kaya",
-    author_name: str = "Kyan's Journal",
+    author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
     timeout: int = 5,
 ) -> int:

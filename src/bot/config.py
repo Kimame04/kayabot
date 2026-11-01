@@ -18,7 +18,7 @@ class BotConfig:
     channel_id: Optional[str] = None
     export_dir: Optional[str] = None
     discord_webhook_url: Optional[str] = None
-    discord_author_name: str = "Kyan's Journal"
+    discord_author_name: str = "Journal"
     discord_author_icon_url: Optional[str] = None
 
     @property
@@ -80,7 +80,7 @@ def load_config(env_file: Optional[Path] = None) -> BotConfig:
     channel_id = os.environ.get("TELEGRAM_CHANNEL_ID") or file_vars.get("TELEGRAM_CHANNEL_ID", "")
     export_dir = os.environ.get("DEFAULT_EXPORT_DIR") or file_vars.get("DEFAULT_EXPORT_DIR")
     discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL") or file_vars.get("DISCORD_WEBHOOK_URL")
-    author_name = os.environ.get("DISCORD_AUTHOR_NAME") or file_vars.get("DISCORD_AUTHOR_NAME") or "Kyan's Journal"
+    author_name = os.environ.get("DISCORD_AUTHOR_NAME") or file_vars.get("DISCORD_AUTHOR_NAME") or "Journal"
     author_icon = os.environ.get("DISCORD_AUTHOR_ICON_URL") or file_vars.get("DISCORD_AUTHOR_ICON_URL")
 
     return BotConfig(

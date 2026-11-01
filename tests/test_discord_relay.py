@@ -34,9 +34,9 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertEqual(payload["username"], "TestKaya")
         self.assertEqual(len(payload["embeds"]), 1)
         embed = payload["embeds"][0]
-        self.assertEqual(embed["title"], "📓 Journal Reflection")
+        self.assertNotIn("title", embed)
         self.assertEqual(embed["description"], "Reflecting on system architecture.")
-        self.assertEqual(embed["author"]["name"], "🖋️ Kyan's Journal")
+        self.assertEqual(embed["author"]["name"], "🖋️ Journal")
         self.assertIn("4 words", embed["footer"]["text"])
         self.assertIn("Entry #101", embed["footer"]["text"])
         self.assertEqual(embed["color"], 0xF1C40F)  # 10:00 is Morning Gold
