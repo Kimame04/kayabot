@@ -50,7 +50,12 @@ def main() -> None:
         "total_reactions": 1,
     }
 
-    success = send_discord_relay(config.discord_webhook_url, sample_row)
+    success = send_discord_relay(
+        config.discord_webhook_url,
+        sample_row,
+        author_name=config.discord_author_name,
+        author_icon_url=config.discord_author_icon_url,
+    )
     if success:
         print("✅ Success! Discord webhook received the message and returned 200/204.")
         print("Check your Discord channel to verify the embed rendering.")

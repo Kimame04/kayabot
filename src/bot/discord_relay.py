@@ -2,7 +2,8 @@
 Discord Webhook Relay Module.
 Forwards live journal reflections from Telegram channel ingestion to Discord
 using standard library urllib and rich embeds, with zero third-party dependencies.
-Supports inline photo attachments, short videos, and size-limit fallbacks.
+Supports inline photo attachments, short videos, circadian color palettes,
+and customizable author branding.
 """
 
 from __future__ import annotations
@@ -19,6 +20,28 @@ import urllib.request
 import uuid
 
 logger = logging.getLogger("discord_relay")
+
+
+def get_circadian_embed_color(dt: Optional[datetime]) -> int:
+    """
+    Return a Discord hex color integer matching the circadian time-of-day:
+    - 🌅 Morning (05:00 – 11:59): Sunrise Gold (0xF1C40F)
+    - ☀️ Afternoon (12:00 – 17:59): Sky Blue (0x3498DB)
+    - 🌆 Evening / Dusk (18:00 – 21:59): Sunset Coral (0xE67E22)
+    - 🌙 Night Owl (22:00 – 04:59): Midnight Indigo (0x3F51B5)
+    """
+    if not isinstance(dt, datetime):
+        return 0x5865F2  # Discord Blurple default
+
+    hour = dt.hour
+    if 5 <= hour < 12:
+        return 0xF1C40F  # Morning Gold
+    elif 12 <= hour < 18:
+        return 0x3498DB  # Afternoon Sky Blue
+    elif 18 <= hour < 22:
+        return 0xE67E22  # Evening Sunset Coral
+    else:
+        return 0x3F51B5  # Night Owl Midnight Indigo
 
 
 def encode_multipart_form(
@@ -63,19 +86,37 @@ def encode_multipart_form(
 def format_discord_payload(
     row: Dict[str, Any],
     bot_name: str = "Kaya",
+    author_name: str = "Kyan's Journal",
+    author_icon_url: Optional[str] = None,
     max_desc_length: int = 4000,
     attachment_filename: Optional[str] = None,
     media_warning: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Construct a JSON-serializable Discord webhook payload featuring a rich embed.
-    Safely handles string truncation, ISO-8601 timestamps, tags, and inline media.
+    Safely handles string truncation, ISO-8601 timestamps, tags, circadian colors,
+    and edge-to-edge media rendering.
     """
-    text = str(row.get("text") or "")
-    if len(text) > max_desc_length:
-        text = text[: max_desc_length - 20] + "\n\n... (truncated)"
+    raw_text = str(row.get("text") or "").strip()
+    has_photo = bool(attachment_filename or row.get("has_photo") or row.get("media_type") == "photo")
+    has_video = bool(row.get("media_type") == "video")
 
-    # Format timestamp for Discord (ISO-8601). Discord renders this in the client's local time.
+    embed_description: Optional[str] = None
+    if raw_text:
+        if len(raw_text) > max_desc_length:
+            embed_description = raw_text[: max_desc_length - 20] + "\n\n... (truncated)"
+        else:
+            embed_description = raw_text
+    else:
+        # Clean media fallback: omit description on photos for edge-to-edge rendering
+        if has_photo:
+            embed_description = None
+        elif has_video:
+            embed_description = "📹 *Video reflection*"
+        else:
+            embed_description = "*(Blank reflection)*"
+
+    # Format timestamp for Discord (ISO-8601)
     raw_ts = row.get("timestamp")
     ts_str = None
     if isinstance(raw_ts, datetime):
@@ -107,20 +148,31 @@ def format_discord_payload(
         })
 
     # Word count & Entry ID footer
-    word_count = row.get("word_count", len(text.split()))
+    word_count = row.get("word_count", len(raw_text.split()))
     entry_id = row.get("id", "")
     footer_text = f"💬 {word_count} words"
     if entry_id:
         footer_text += f" • Entry #{entry_id}"
 
+    # Compute circadian time-of-day border color
+    color = get_circadian_embed_color(raw_ts)
+
+    # Author header block
+    author_dict: Dict[str, Any] = {"name": f"🖋️ {author_name}"}
+    if author_icon_url:
+        author_dict["icon_url"] = author_icon_url
+
     embed: Dict[str, Any] = {
+        "author": author_dict,
         "title": "📓 Journal Reflection",
-        "description": text or "*(Media attachment or blank entry)*",
-        "color": 0x5865F2,  # Discord Blurple
+        "color": color,
         "footer": {
             "text": footer_text,
         },
     }
+
+    if embed_description:
+        embed["description"] = embed_description
 
     if ts_str:
         embed["timestamp"] = ts_str
@@ -145,12 +197,14 @@ def send_discord_relay(
     filename: Optional[str] = None,
     media_warning: Optional[str] = None,
     bot_name: str = "Kaya",
+    author_name: str = "Kyan's Journal",
+    author_icon_url: Optional[str] = None,
     timeout: int = 15,
 ) -> bool:
     """
     Dispatches a reflection entry to Discord via Webhook.
     Supports multipart form uploads with file attachments, automatic 413 fallback,
-    and non-blocking fail-safe execution.
+    customizable author branding, and non-blocking fail-safe execution.
     Returns True if successfully sent, False otherwise.
     """
     if not webhook_url or not str(webhook_url).strip():
@@ -166,6 +220,8 @@ def send_discord_relay(
             payload = format_discord_payload(
                 row,
                 bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
                 attachment_filename=filename,
                 media_warning=media_warning,
             )
@@ -178,6 +234,8 @@ def send_discord_relay(
             payload = format_discord_payload(
                 row,
                 bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
                 media_warning=media_warning,
             )
             data = json.dumps(payload).encode("utf-8")
@@ -211,6 +269,8 @@ def send_discord_relay(
                 filename=None,
                 media_warning="⚠️ Media exceeds Discord upload limit (view in Telegram channel)",
                 bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
                 timeout=timeout,
             )
         logger.warning(f"[DiscordRelay] HTTP Error {e.code}: {e.reason}")
@@ -263,6 +323,8 @@ def queue_pending_relay(row: Dict[str, Any], media_warning: Optional[str] = None
 def flush_pending_relays(
     webhook_url: Optional[str],
     bot_name: str = "Kaya",
+    author_name: str = "Kyan's Journal",
+    author_icon_url: Optional[str] = None,
     timeout: int = 5,
 ) -> int:
     """
@@ -296,7 +358,14 @@ def flush_pending_relays(
             except Exception:
                 pass
 
-        if send_discord_relay(webhook_url, item, bot_name=bot_name, timeout=timeout):
+        if send_discord_relay(
+            webhook_url,
+            item,
+            bot_name=bot_name,
+            author_name=author_name,
+            author_icon_url=author_icon_url,
+            timeout=timeout,
+        ):
             flushed_count += 1
         else:
             remaining.append(entry)

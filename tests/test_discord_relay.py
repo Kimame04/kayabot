@@ -13,7 +13,11 @@ from unittest.mock import MagicMock, patch
 import urllib.error
 
 from src.bot.config import BotConfig
-from src.bot.discord_relay import format_discord_payload, send_discord_relay
+from src.bot.discord_relay import (
+    format_discord_payload,
+    get_circadian_embed_color,
+    send_discord_relay,
+)
 
 
 class TestDiscordRelay(unittest.TestCase):
@@ -32,10 +36,41 @@ class TestDiscordRelay(unittest.TestCase):
         embed = payload["embeds"][0]
         self.assertEqual(embed["title"], "📓 Journal Reflection")
         self.assertEqual(embed["description"], "Reflecting on system architecture.")
+        self.assertEqual(embed["author"]["name"], "🖋️ Kyan's Journal")
         self.assertIn("4 words", embed["footer"]["text"])
         self.assertIn("Entry #101", embed["footer"]["text"])
-        self.assertEqual(embed["color"], 0x5865F2)
+        self.assertEqual(embed["color"], 0xF1C40F)  # 10:00 is Morning Gold
         self.assertNotIn("fields", embed)
+
+    def test_circadian_colors(self):
+        self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 8, 0)), 0xF1C40F)   # Morning
+        self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 14, 0)), 0x3498DB)  # Afternoon
+        self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 19, 0)), 0xE67E22)  # Evening
+        self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 23, 0)), 0x3F51B5)  # Night Owl
+        self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 2, 0)), 0x3F51B5)   # Night Owl
+        self.assertEqual(get_circadian_embed_color(None), 0x5865F2)                           # Fallback
+
+    def test_format_payload_author_custom(self):
+        row = {"id": 108, "text": "Testing custom author", "timestamp": datetime(2026, 11, 1, 10, 0)}
+        payload = format_discord_payload(
+            row,
+            author_name="Kyan's Reflections",
+            author_icon_url="https://example.com/kyan.png",
+        )
+        author = payload["embeds"][0]["author"]
+        self.assertEqual(author["name"], "🖋️ Kyan's Reflections")
+        self.assertEqual(author["icon_url"], "https://example.com/kyan.png")
+
+    def test_format_payload_clean_media_fallback(self):
+        # Photo post without caption should omit description
+        photo_row = {"id": 109, "text": "", "media_type": "photo", "timestamp": datetime(2026, 11, 1, 12, 0)}
+        payload_photo = format_discord_payload(photo_row, attachment_filename="photo.jpg")
+        self.assertNotIn("description", payload_photo["embeds"][0])
+
+        # Video post without caption should show video icon
+        video_row = {"id": 110, "text": "", "media_type": "video", "timestamp": datetime(2026, 11, 1, 12, 0)}
+        payload_video = format_discord_payload(video_row)
+        self.assertEqual(payload_video["embeds"][0]["description"], "📹 *Video reflection*")
 
     def test_format_payload_with_tags(self):
         row = {

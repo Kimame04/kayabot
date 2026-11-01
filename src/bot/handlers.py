@@ -381,7 +381,11 @@ class BotDispatcher:
         if is_new and self.config.has_discord_relay:
             from src.bot.discord_relay import flush_pending_relays, queue_pending_relay, send_discord_relay
             # Flush any prior backlog
-            flush_pending_relays(self.config.discord_webhook_url)
+            flush_pending_relays(
+                self.config.discord_webhook_url,
+                author_name=self.config.discord_author_name,
+                author_icon_url=self.config.discord_author_icon_url,
+            )
 
             file_bytes: Optional[bytes] = None
             filename: Optional[str] = None
@@ -413,6 +417,8 @@ class BotDispatcher:
                 file_bytes=file_bytes,
                 filename=filename,
                 media_warning=media_warning,
+                author_name=self.config.discord_author_name,
+                author_icon_url=self.config.discord_author_icon_url,
             )
             if success:
                 media_str = f" with {row.get('media_type')}" if file_bytes else ""

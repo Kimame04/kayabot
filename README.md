@@ -170,7 +170,7 @@ Run the automated test suite across all modules:
 ```bash
 python -m unittest discover tests
 ```
-> **Self-Contained:** Tests automatically run against `ChatExport_sample` with 100% mocked network calls, allowing all 62 unit tests to pass out-of-the-box on fresh clones without needing private personal data.
+> **Self-Contained:** Tests automatically run against `ChatExport_sample` with 100% mocked network calls, allowing all 65 unit tests to pass out-of-the-box on fresh clones without needing private personal data.
 
 ---
 
