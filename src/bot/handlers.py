@@ -376,6 +376,51 @@ class BotDispatcher:
 
         status_tag = "New entry" if is_new else "Edited entry"
         print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']})")
+
+        # Relay to Discord if webhook is configured and post is a new entry
+        if is_new and self.config.has_discord_relay:
+            from src.bot.discord_relay import flush_pending_relays, queue_pending_relay, send_discord_relay
+            # Flush any prior backlog
+            flush_pending_relays(self.config.discord_webhook_url)
+
+            file_bytes: Optional[bytes] = None
+            filename: Optional[str] = None
+            media_warning: Optional[str] = None
+
+            # Handle media downloading with 10MB limit guardrails
+            media_file_id = row.get("media_file_id")
+            media_size = row.get("media_file_size") or 0
+            max_discord_size = 10 * 1024 * 1024  # 10 MB
+
+            if media_file_id:
+                if media_size > max_discord_size:
+                    media_type_label = (row.get("media_type") or "Media").title()
+                    media_warning = f"⚠️ {media_type_label} ({media_size / (1024 * 1024):.1f} MB exceeds Discord limit — view in Telegram channel)"
+                else:
+                    try:
+                        file_info = self.client.get_file(media_file_id)
+                        file_path = file_info.get("file_path")
+                        if file_path:
+                            file_bytes = self.client.download_file(file_path, max_bytes=max_discord_size)
+                            filename = row.get("media_file_name") or "reflection.jpg"
+                    except Exception as e:
+                        print(f"⚠️ [DiscordRelay] Failed to fetch media from Telegram: {e}")
+                        media_warning = "⚠️ Media could not be downloaded (view in Telegram channel)"
+
+            success = send_discord_relay(
+                self.config.discord_webhook_url,
+                row,
+                file_bytes=file_bytes,
+                filename=filename,
+                media_warning=media_warning,
+            )
+            if success:
+                media_str = f" with {row.get('media_type')}" if file_bytes else ""
+                print(f"📢 [DiscordRelay] Reflection #{row['id']}{media_str} relayed to Discord")
+            else:
+                queue_pending_relay(row, media_warning=media_warning)
+                print(f"⚠️ [DiscordRelay] Delivery failed; reflection #{row['id']} queued for retry")
+
         return row
 
     def dispatch_channel_post(self, post: Dict[str, Any]) -> None:

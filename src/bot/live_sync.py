@@ -44,9 +44,46 @@ def parse_channel_post(post: Dict[str, Any]) -> Dict[str, Any]:
     tags = _extract_bracket_tags(text)
     first_tag = tags[0] if tags else None
 
-    # Media checks
+    # Media checks and metadata extraction
+    media_file_id: Optional[str] = None
+    media_type: Optional[str] = None
+    media_file_size: Optional[int] = None
+    media_file_name: Optional[str] = None
+
+    if post.get("photo"):
+        has_photo = True
+        media_type = "photo"
+        photos = post["photo"]
+        if isinstance(photos, list) and photos:
+            best = photos[-1]
+            media_file_id = best.get("file_id")
+            media_file_size = best.get("file_size")
+            media_file_name = "reflection.jpg"
+    else:
+        has_photo = False
+
+    video = post.get("video")
+    document = post.get("document")
+    audio = post.get("audio") or post.get("voice")
+
+    if video:
+        media_type = "video"
+        media_file_id = video.get("file_id")
+        media_file_size = video.get("file_size")
+        media_file_name = video.get("file_name") or "reflection.mp4"
+    elif document:
+        media_type = "document"
+        media_file_id = document.get("file_id")
+        media_file_size = document.get("file_size")
+        media_file_name = document.get("file_name") or "document.bin"
+    elif audio:
+        media_type = "audio"
+        media_file_id = audio.get("file_id")
+        media_file_size = audio.get("file_size")
+        media_file_name = audio.get("file_name") or "audio.mp3"
+
     has_photo = bool(post.get("photo"))
-    has_media = bool(post.get("video") or post.get("document") or post.get("audio") or post.get("voice"))
+    has_media = bool(video or document or audio)
 
     # Reactions (if included in post object)
     raw_reactions = post.get("reactions") or {}
@@ -70,6 +107,10 @@ def parse_channel_post(post: Dict[str, Any]) -> Dict[str, Any]:
         "reply_to_id": reply_to_id,
         "has_photo": has_photo,
         "has_media": has_media,
+        "media_type": media_type,
+        "media_file_id": media_file_id,
+        "media_file_size": media_file_size,
+        "media_file_name": media_file_name,
         "date": dt_local.date(),
         "year": dt_local.year,
         "month": dt_local.month,

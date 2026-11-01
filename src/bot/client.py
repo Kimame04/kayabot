@@ -128,3 +128,26 @@ class TelegramClient:
         if text:
             payload["text"] = text
         return bool(self._request("answerCallbackQuery", payload=payload))
+
+    def get_file(self, file_id: str) -> Dict[str, Any]:
+        """Fetch basic file metadata including file_path from Telegram."""
+        return self._request("getFile", payload={"file_id": file_id})
+
+    def download_file(self, file_path: str, max_bytes: int = 10 * 1024 * 1024) -> Optional[bytes]:
+        """
+        Download raw file bytes from Telegram cloud storage.
+        Safely enforces max_bytes to avoid reading monolithic streams into memory.
+        """
+        url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
+        req = urllib.request.Request(url, headers={"User-Agent": "TelegramJournalAnalytics/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                content_len = resp.headers.get("Content-Length")
+                if content_len and int(content_len) > max_bytes:
+                    return None
+                data = resp.read(max_bytes + 1)
+                if len(data) > max_bytes:
+                    return None
+                return data
+        except Exception:
+            return None

@@ -14,10 +14,11 @@ telegram-journal-analytics/
 │   ├── parser.py          # Universal Telegram HTML parser & Parquet cache engine
 │   ├── bot/               # Telegram Companion Bot & Live Channel Ingestion
 │   │   ├── client.py      # Zero-dependency HTTP Bot API client (urllib.request)
+│   │   ├── config.py      # Isolated .env configuration loader
+│   │   ├── discord_relay.py # Fail-safe Discord Webhook Relay engine
 │   │   ├── formatter.py   # Telegram HTML message formatting & 4000-char chunker
 │   │   ├── handlers.py    # Command routing, callback dispatch, user whitelist
-│   │   ├── live_sync.py   # Real-time channel ingestion & delta Parquet store
-│   │   └── config.py      # Isolated .env configuration loader
+│   │   └── live_sync.py   # Real-time channel ingestion & delta Parquet store
 │   ├── circadian/         # Biological & psychological rhythm models
 │   │   ├── logic.py       # Pure domain metrics (hourly density, night-owl share)
 │   │   └── visual.py      # Plotly dark-mode & Matplotlib visual generators
@@ -46,6 +47,7 @@ telegram-journal-analytics/
 │   ├── run_bot.py            # Long-polling interactive Telegram bot daemon
 │   ├── setup_daemon.py       # macOS launchd background service manager
 │   ├── get_chat_id.py        # Automatic Chat ID discovery & .env updater
+│   ├── test_discord_relay.py # CLI testing tool for Discord Webhook relay
 │   ├── run_circadian.py      # CLI runner for Circadian analytics
 │   ├── run_tag_lifecycles.py # CLI runner for Tag & Hobby lifecycles
 │   ├── run_otd.py            # CLI runner for On This Day flashback
@@ -53,6 +55,7 @@ telegram-journal-analytics/
 │   └── generate_synthetic_export.py # Authentic mock Telegram export generator
 ├── tests/
 │   ├── test_live_sync.py
+│   ├── test_discord_relay.py
 │   ├── test_bot_client.py
 │   ├── test_bot_formatter.py
 │   ├── test_bot_config.py
@@ -150,4 +153,5 @@ flowchart TD
 * **Zero External Framework Dependencies:** Implemented using standard library `urllib.request`. Zero async framework lock-in (`python-telegram-bot` or `aiogram` bloat avoided).
 * **Strict User Whitelist:** Private DM interactions are checked against `TELEGRAM_CHAT_ID`. Non-authorized users receive an immediate `Access Denied` card and are logged.
 * **Defensive Message Chunking:** Telegram strictly enforces a 4,096-character limit per message. `formatter.py` escapes HTML special characters, truncates massive monolithic entries to 500 characters, and breaks multi-year flashbacks into chained chunks of $< 4,000$ characters.
+* **Fail-Safe Discord Webhook Relay:** When `DISCORD_WEBHOOK_URL` is set, live channel posts are mirrored into Discord as rich embed cards with local timezone timestamps, bracket tags, and word counts. Network failures or Discord rate limits are isolated and will never impede Telegram ingestion or Parquet caching.
 * **macOS Background Service:** Managed via standard user `launchd` plist (`~/Library/LaunchAgents/com.kieran.telegram_journal_bot.plist`) with `KeepAlive: true` and unbuffered stdout logging to `output/bot.log`.

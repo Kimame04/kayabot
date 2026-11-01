@@ -106,6 +106,35 @@ class TestTelegramClient(unittest.TestCase):
         self.assertIn("chat not found", str(ctx.exception))
         self.assertEqual(ctx.exception.error_code, 400)
 
+    @patch("urllib.request.urlopen")
+    def test_get_file(self, mock_urlopen):
+        mock_response = io.BytesIO(json.dumps({
+            "ok": True,
+            "result": {
+                "file_id": "file_123",
+                "file_path": "photos/file_123.jpg",
+                "file_size": 45000,
+            }
+        }).encode("utf-8"))
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = TelegramClient("dummy_token")
+        res = client.get_file("file_123")
+        self.assertEqual(res["file_path"], "photos/file_123.jpg")
+        self.assertEqual(res["file_size"], 45000)
+
+    @patch("urllib.request.urlopen")
+    def test_download_file(self, mock_urlopen):
+        fake_bytes = b"\xff\xd8\xff\xe0test_jpeg_bytes"
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = fake_bytes
+        mock_resp.headers = {"Content-Length": str(len(fake_bytes))}
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        client = TelegramClient("dummy_token")
+        data = client.download_file("photos/file_123.jpg", max_bytes=1024)
+        self.assertEqual(data, fake_bytes)
+
 
 if __name__ == "__main__":
     unittest.main()

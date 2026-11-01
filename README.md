@@ -93,6 +93,19 @@ python -m scripts.send_daily_otd
 python -m scripts.send_daily_otd --dry-run
 ```
 
+### Discord Live Journal Relay (Optional)
+If you have friends who don't use Telegram, you can stream your live reflections into a private Discord channel via Webhook:
+1. In Discord, go to **Channel Settings** $\rightarrow$ **Integrations** $\rightarrow$ **Webhooks** $\rightarrow$ **New Webhook** and copy the URL.
+2. Add to `.env`:
+   ```bash
+   DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+   ```
+3. Test your connection directly:
+   ```bash
+   python -m scripts.test_discord_relay "Testing my Discord relay! [test]"
+   ```
+Whenever you post in your Telegram channel, KayaBot will immediately relay the post as a sleek, formatted embed card with auto-local timestamps, tags, and word counts. Photos are attached and displayed inline, and files over Discord's 10MB limit automatically degrade to a clean metadata notice without failing.
+
 ---
 
 ## 📊 Analytics & Master Dossier CLI
@@ -157,7 +170,7 @@ Run the automated test suite across all modules:
 ```bash
 python -m unittest discover tests
 ```
-> **Self-Contained:** Tests automatically run against `ChatExport_sample` with 100% mocked network calls, allowing all 46 unit tests to pass out-of-the-box on fresh clones without needing private personal data.
+> **Self-Contained:** Tests automatically run against `ChatExport_sample` with 100% mocked network calls, allowing all 62 unit tests to pass out-of-the-box on fresh clones without needing private personal data.
 
 ---
 
