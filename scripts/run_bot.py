@@ -71,18 +71,17 @@ def main() -> None:
         print(f"📢 Live ingestion active for channel ID: {config.channel_id}")
     else:
         print("💡 Live ingestion: Add this bot as an Admin in your channel to auto-sync posts!")
+    if config.has_discord_relay:
+        print("🔗 Discord live relay: Active")
     print("Commands supported: /otd, /random, /stats, /tag <name>, /help")
     print("Press Ctrl+C to terminate.\n")
 
     offset = None
-    # Flush pending messages on startup
-    try:
-        pending = client.get_updates(timeout=1)
-        if pending:
-            offset = pending[-1]["update_id"] + 1
-            print(f"[Bot] Flushed {len(pending)} pending update(s).")
-    except Exception:
-        pass
+    if config.has_discord_relay:
+        from src.bot.discord_relay import flush_pending_relays
+        flushed = flush_pending_relays(config.discord_webhook_url)
+        if flushed:
+            print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord on startup.")
 
     consecutive_errors = 0
     while True:

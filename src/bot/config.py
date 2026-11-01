@@ -17,6 +17,7 @@ class BotConfig:
     chat_id: Optional[str] = None
     channel_id: Optional[str] = None
     export_dir: Optional[str] = None
+    discord_webhook_url: Optional[str] = None
 
     @property
     def is_configured(self) -> bool:
@@ -32,6 +33,11 @@ class BotConfig:
     def can_ingest_channel(self) -> bool:
         """True if bot_token is configured and channel_id is designated."""
         return self.is_configured and bool(self.channel_id and str(self.channel_id).strip())
+
+    @property
+    def has_discord_relay(self) -> bool:
+        """True if discord_webhook_url is configured and non-empty."""
+        return bool(self.discord_webhook_url and self.discord_webhook_url.strip())
 
 
 def get_repo_root() -> Path:
@@ -71,12 +77,14 @@ def load_config(env_file: Optional[Path] = None) -> BotConfig:
     chat_id = os.environ.get("TELEGRAM_CHAT_ID") or file_vars.get("TELEGRAM_CHAT_ID", "")
     channel_id = os.environ.get("TELEGRAM_CHANNEL_ID") or file_vars.get("TELEGRAM_CHANNEL_ID", "")
     export_dir = os.environ.get("DEFAULT_EXPORT_DIR") or file_vars.get("DEFAULT_EXPORT_DIR")
+    discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL") or file_vars.get("DISCORD_WEBHOOK_URL")
 
     return BotConfig(
         bot_token=token.strip(),
         chat_id=str(chat_id).strip() if chat_id else None,
         channel_id=str(channel_id).strip() if channel_id else None,
         export_dir=export_dir.strip() if export_dir else None,
+        discord_webhook_url=str(discord_webhook).strip() if discord_webhook else None,
     )
 
 
