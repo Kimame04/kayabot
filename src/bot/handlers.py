@@ -362,7 +362,12 @@ class BotDispatcher:
             print(f"📢 [LiveSync] Auto-configured TELEGRAM_CHANNEL_ID=\"{post_chat_id}\" from channel: {chat.get('title')}")
 
         # Ingest and persist into live delta Parquet store
-        row, is_new = ingest_channel_post(post, delta_path=self.delta_path)
+        row, is_new = ingest_channel_post(
+            post,
+            delta_path=self.delta_path,
+            suppress_tags=getattr(self.config, "discord_suppress_tags", ["nowh"]),
+            strip_suppress_tags=getattr(self.config, "discord_strip_suppress_tags", True),
+        )
 
         # Update in-memory DataFrame so /otd and /stats immediately reflect this entry
         new_row_df = pd.DataFrame([row])
@@ -375,10 +380,15 @@ class BotDispatcher:
         )
 
         status_tag = "New entry" if is_new else "Edited entry"
-        print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']})")
+        suppress_note = " [Suppressed from Discord]" if row.get("skip_discord") else ""
+        print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']}){suppress_note}")
 
-        # Relay to Discord if webhook is configured and post is a new entry
+        # Relay to Discord if webhook is configured, post is a new entry, and not suppressed
         if is_new and self.config.has_discord_relay:
+            if row.get("skip_discord"):
+                print(f"⏭️ [DiscordRelay] Reflection #{row['id']} suppressed via tag (Discord relay skipped)")
+                return row
+
             from src.bot.discord_relay import flush_pending_relays, queue_pending_relay, send_discord_relay
             # Flush any prior backlog
             flush_pending_relays(

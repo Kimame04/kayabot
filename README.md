@@ -1,183 +1,105 @@
-# Telegram Journal Analytics 🕰️📊
+# JijiBot 🐾
 
-A privacy-focused personal analytics suite and companion Telegram bot for your personal journal channel. Transforms your raw reflections into interactive intelligence dossiers, multi-year "On This Day" flashbacks, and continuous real-time channel sync without manual exports.
+> A personal reflection familiar for Telegram channels. Streams live thoughts into Discord with circadian aesthetics, backed by multi-year flashbacks and deep behavioral analytics.
 
-For internal system designs, data models, and module topologies, see [ARCHITECTURE.md](ARCHITECTURE.md).
+[![Tests](https://img.shields.io/badge/tests-68%20passed-brightgreen.svg)](#-testing)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](environment.yml)
+[![Zero Dependency Bot API](https://img.shields.io/badge/bot--api-zero--dependency-orange.svg)](src/bot/client.py)
+[![Privacy First](https://img.shields.io/badge/privacy-100%25%20offline-success.svg)](#-privacy--data-isolation)
+
+---
+
+## ✨ Features at a Glance
+
+* **⚡ Live Discord Relay:** Streams reflections from your Telegram channel into Discord in real time.
+  * **Circadian Theming:** Embed borders dynamically color-code based on your reflection's time of day.
+  * **Rich Media:** Automatically mirrors attached photos and videos.
+  * **Selective Privacy:** Configurable privacy tags keep sensitive reflections archived locally while skipping Discord.
+  * **Offline Resilience:** Failsafe queue auto-delivers reflections if your machine sleeps or disconnects.
+* **💬 In-Chat Familiar:** Chat directly with JijiBot in Telegram for instant multi-year flashbacks (`/otd`), statistics, and topic search.
+* **📊 Retrospective Analytics:** Compiles sub-second interactive HTML dashboards: circadian habit curves, tag lifecycles, and Spotify Wrapped-style annual reviews.
 
 ---
 
 ## ⚡ Quick Start
 
-### 1. Environment Setup
-
+### 1. Install
 ```bash
-# Using Conda (Recommended)
-conda env create -f environment.yml
-conda activate tele-journal
-
-# Or using Pip
-pip install -r requirements.txt
+conda env create -f environment.yml && conda activate tele-journal
+# or: pip install -r requirements.txt
 ```
 
-### 2. Set Up Your Telegram Companion Bot (5 Minutes)
-
-1. **Create your bot:** Open Telegram, search for [`@BotFather`](https://t.me/BotFather), send `/newbot`, and copy your HTTP API token.
-2. **Configure token:** Create a `.env` file in the project root:
-   ```bash
-   cp .env.example .env
-   ```
-   Add your token: `TELEGRAM_BOT_TOKEN="your_token_here"`
-3. **Link your Telegram ID:** Run the discovery utility:
-   ```bash
-   python -m scripts.get_chat_id
-   ```
-   Open Telegram, search for your bot, and tap **START**. Your Chat ID will be captured and saved to `.env` automatically.
-4. **Enable Live Channel Sync:**
-   * Open your private journal channel $\rightarrow$ **Settings** $\rightarrow$ **Administrators** $\rightarrow$ **Add Admin**.
-   * Add your bot with **"Post Messages"** permission. Every new reflection you write will now stream into your analytics in real time!
-
-### 3. Run Your Bot & Generate Analytics
-
+### 2. Configure (`.env`)
 ```bash
-# Start the bot as a silent 24/7 background service on macOS (Recommended)
-python -m scripts.setup_daemon install
-
-# Dispatch today's flashback memory card to your Telegram chat
-python -m scripts.send_daily_otd
-
-# Generate and view the master dark-mode analytics dashboard in your browser
-python -m scripts.run_all --open
+cp .env.example .env
 ```
+Fill in your credentials:
+```env
+TELEGRAM_BOT_TOKEN="your_bot_token"
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+DISCORD_AUTHOR_NAME="My Journal"
+```
+
+Link your chat & channel:
+1. Run `python -m scripts.get_chat_id`, open Telegram, and tap **START** on your bot.
+2. Add your bot as an **Admin** to your private journal channel with "Post Messages" permission.
+
+### 3. Run as 24/7 Background Service (macOS)
+```bash
+python -m scripts.setup_daemon install    # Install & start launchd daemon
+python -m scripts.setup_daemon status     # Check health & recent logs
+python -m scripts.setup_daemon restart    # Reload code or .env changes
+```
+*(Or run interactively in foreground: `python -m scripts.run_bot`)*
 
 ---
 
-## 🤖 Telegram Companion Bot Usage
+## 🤖 Bot Commands (Telegram DM)
 
-### In Telegram Direct Messages (with your bot)
-All commands feature an automatic security whitelist—only you (`TELEGRAM_CHAT_ID`) can interact with your bot.
+Only your whitelisted `TELEGRAM_CHAT_ID` can interact with the bot:
 
-| Command | Action |
+| Command | Description |
 | :--- | :--- |
-| **`/start`** or **`/help`** | Open welcome dossier and interactive navigation buttons. |
-| **`/otd`** | Display multi-year memories recorded on today's calendar date. |
-| **`/otd MM-DD`** | Flashback for a specific date (e.g. `/otd 09-15` or `/otd Sep 15`). |
-| **`/random`** | Discover a random past active journal day. |
-| **`/stats`** | Instant scorecard: total entries, words, book pages, streaks, and circadian persona. |
-| **`/tag <name>`** | Deep dive into an interest tag (e.g. `/tag f1` or `/tag reading`). |
+| **`/otd`** | Multi-year flashback for today's calendar date |
+| **`/otd MM-DD`** | Flashback for a specific date (e.g. `/otd 09-15`) |
+| **`/random`** | Pull a random memory from your archive |
+| **`/stats`** | Instant scorecard: total entries, words, book pages, streaks, circadian persona |
+| **`/tag <name>`** | Deep dive into an interest tag (e.g. `/tag reading` or `/tag f1`) |
+| **`/help`** | Command directory and navigation buttons |
 
-### Managing the macOS Background Daemon
-The daemon runs quietly across reboots, with logs written to `output/bot.log`.
-
-```bash
-# Check daemon health & view recent logs
-python -m scripts.setup_daemon status
-
-# Restart daemon (e.g. after adding new export archives)
-python -m scripts.setup_daemon restart
-
-# Stop and remove background service
-python -m scripts.setup_daemon uninstall
-
-# Or run interactively in a foreground terminal
-python -m scripts.run_bot
-```
-
-### Scheduled Daily Morning Push
-Schedule a daily flashback delivery to your Telegram chat every morning (e.g. at 8:00 AM via macOS `crontab` or `launchd`):
-
-```bash
-# Dispatch today's memory card
-python -m scripts.send_daily_otd
-
-# Preview the HTML card in your terminal without sending
-python -m scripts.send_daily_otd --dry-run
-```
-
-### Discord Live Journal Relay (Optional)
-If you have friends who don't use Telegram, you can stream your live reflections into a private Discord channel via Webhook:
-1. In Discord, go to **Channel Settings** $\rightarrow$ **Integrations** $\rightarrow$ **Webhooks** $\rightarrow$ **New Webhook** and copy the URL.
-2. Add to `.env`:
-   ```bash
-   DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
-   ```
-3. Test your connection directly:
-   ```bash
-   python -m scripts.test_discord_relay "Testing my Discord relay! [test]"
-   ```
-Whenever you post in your Telegram channel, KayaBot will immediately relay the post as a sleek, formatted embed card with auto-local timestamps, tags, and word counts. Photos are attached and displayed inline, and files over Discord's 10MB limit automatically degrade to a clean metadata notice without failing.
+> **Daily Morning Flashback:** Run `python -m scripts.send_daily_otd` (supports `--dry-run`) via cron or launchd to receive today's memory card every morning.
 
 ---
 
-## 📊 Analytics & Master Dossier CLI
+## 📊 Analytics & Master Dossier
 
-You can also run all analytics engines directly from your terminal or generate interactive HTML dashboards:
+Run analytics directly from your terminal or open standalone dark-mode HTML reports:
 
-### 1. Master Journal Dossier (All-in-One Dashboard)
-Runs all 4 analytical pipelines in a single sub-second pass and compiles `output/dashboard.html`:
 ```bash
-# Generate and immediately open the dashboard in your default browser
+# Master Dossier: runs all 4 engines in ~0.2s and opens unified dashboard
 python -m scripts.run_all --open
 
-# Also output individual standalone reports (circadian, lifecycle, wrapped, OTD)
-python -m scripts.run_all --all-reports
-
-# Run against synthetic demo dataset
-python -m scripts.run_all --export-dir "ChatExport_sample"
-```
-
-### 2. "On This Day" (OTD) Time Capsule
-```bash
-# Today's memories
-python -m scripts.run_otd
-
-# Custom date query with ±2 days window
-python -m scripts.run_otd --date 09-15 --window 2
-
-# Discover a random past memory
-python -m scripts.run_otd --random
-```
-
-### 3. Tag & Hobby Lifecycles
-Track how interests and hobbies evolve over time from bracket tags (`[tag]`):
-```bash
-python -m scripts.run_tag_lifecycles
-```
-Outputs an interactive Plotly streamgraph and horizontal Gantt charts classifying topics into **Evergreen Passions**, **Seasonal Bursts**, and **Emerging Eras**.
-
-### 4. Circadian & Habit Heatmaps
-```bash
-python -m scripts.run_circadian
-```
-Generates 24-hour message distribution curves, day-of-week heatmaps, and longitudinal night-owl habit shifts.
-
-### 5. Channel-Wrapped Retrospective ("Spotify Wrapped" Style)
-```bash
-# Retrospective for the latest active year (e.g. 2026)
-python -m scripts.run_wrapped
-
-# Retrospective across your entire journaling history
-python -m scripts.run_wrapped --all-time
-
-# Retrospective for a specific year
-python -m scripts.run_wrapped --year 2024
+# Individual Reports
+python -m scripts.run_circadian       # 24h hourly curves, weekly heatmaps, night-owl index
+python -m scripts.run_tag_lifecycles  # [tag] streamgraph & lifespan categorization
+python -m scripts.run_wrapped         # Spotify Wrapped-style story deck (--all-time or --year 2024)
+python -m scripts.run_otd             # Terminal flashback feed (--date 09-15 --window 2)
 ```
 
 ---
 
 ## 🧪 Testing
 
-Run the automated test suite across all modules:
 ```bash
 python -m unittest discover tests
 ```
-> **Self-Contained:** Tests automatically run against `ChatExport_sample` with 100% mocked network calls, allowing all 65 unit tests to pass out-of-the-box on fresh clones without needing private personal data.
+* **68/68 unit tests passing** with 100% mocked network calls.
+* Fully self-contained; tests run against synthetic benchmarks (`ChatExport_sample/`) without needing private data.
 
 ---
 
 ## 🔒 Privacy & Data Isolation
 
-Designed strictly for personal journal reflection:
-* **Private Exports (`ChatExport_*`):** Excluded from version control in `.gitignore`.
-* **Bot Secrets (`.env`):** Bot tokens and chat IDs are strictly ignored by git.
-* **Access Control:** The bot rejects interaction attempts from unauthorized Telegram users.
-* **Public Demos:** All documentation assets and demo reports are compiled exclusively from sanitized mock datasets (`ChatExport_sample/`).
+* **Strictly Local:** Personal exports (`ChatExport_*`), `.cache/`, and `.env` are gitignored.
+* **Access Control:** JijiBot rejects commands from any unverified user ID.
+* **Public Demos:** Online [documentation showcase](https://kimame04.github.io/telegram-journal-analytics/) is generated exclusively from synthetic data.

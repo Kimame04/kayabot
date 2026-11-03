@@ -240,6 +240,102 @@ class TestLiveSync(unittest.TestCase):
         self.assertEqual(args[0], 99999)
         self.assertIn("Access Denied", args[1])
 
+    def test_parse_channel_post_suppression_tag(self):
+        # 1. Post with [nowh] (default suppression tag)
+        post_suppressed = {
+            "message_id": 601,
+            "date": 1729684800,
+            "text": "[nowh] A confidential thought about the roadmap.",
+        }
+        row = parse_channel_post(post_suppressed, suppress_tags=["nowh"], strip_suppress_tags=True)
+        self.assertTrue(row["skip_discord"])
+        self.assertEqual(row["text"], "A confidential thought about the roadmap.")
+        self.assertEqual(row["tags"], [])
+        self.assertIsNone(row["first_tag"])
+        self.assertEqual(row["word_count"], 6)
+
+        # 2. Post with [nowh] and other topic tags
+        post_mixed = {
+            "message_id": 602,
+            "date": 1729684800,
+            "text": "[reading] Finished chapter 5 [nowh] and feeling inspired",
+        }
+        row_mixed = parse_channel_post(post_mixed, suppress_tags=["nowh"], strip_suppress_tags=True)
+        self.assertTrue(row_mixed["skip_discord"])
+        self.assertEqual(row_mixed["text"], "[reading] Finished chapter 5 and feeling inspired")
+        self.assertEqual(row_mixed["tags"], ["reading"])
+        self.assertEqual(row_mixed["first_tag"], "reading")
+
+        # 3. Case-insensitive [NOWH]
+        post_upper = {
+            "message_id": 603,
+            "date": 1729684800,
+            "text": "[NOWH] All caps suppression tag",
+        }
+        row_upper = parse_channel_post(post_upper, suppress_tags=["nowh"], strip_suppress_tags=True)
+        self.assertTrue(row_upper["skip_discord"])
+        self.assertEqual(row_upper["text"], "All caps suppression tag")
+
+        # 4. Strip disabled (strip_suppress_tags=False)
+        row_no_strip = parse_channel_post(post_suppressed, suppress_tags=["nowh"], strip_suppress_tags=False)
+        self.assertTrue(row_no_strip["skip_discord"])
+        self.assertEqual(row_no_strip["text"], "[nowh] A confidential thought about the roadmap.")
+        self.assertEqual(row_no_strip["tags"], ["nowh"])
+
+        # 5. Normal post without suppress tag -> skip_discord is False
+        post_normal = {
+            "message_id": 604,
+            "date": 1729684800,
+            "text": "Regular journal entry [fitness]",
+        }
+        row_normal = parse_channel_post(post_normal, suppress_tags=["nowh"])
+        self.assertFalse(row_normal["skip_discord"])
+        self.assertEqual(row_normal["text"], "Regular journal entry [fitness]")
+        self.assertEqual(row_normal["tags"], ["fitness"])
+
+    def test_dispatcher_channel_post_with_suppress_tag(self):
+        client = MagicMock()
+        config = BotConfig(
+            bot_token="test_tok",
+            channel_id="-100123",
+            discord_webhook_url="https://discord.com/api/webhooks/123/abc",
+            discord_suppress_tags=["nowh"],
+        )
+        initial_df = pd.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "suppress_delta.parquet"
+            dispatcher = BotDispatcher(client, config, initial_df, delta_path=delta_path)
+
+            from unittest.mock import patch
+            with patch("src.bot.discord_relay.send_discord_relay") as mock_relay:
+                # 1. Post with [nowh] -> Should sync locally but NOT relay to Discord
+                post_suppressed = {
+                    "message_id": 10,
+                    "date": 1729686000,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "[nowh] Private journal reflection"
+                }
+                res = dispatcher.handle_channel_post(post_suppressed)
+                self.assertIsNotNone(res)
+                self.assertTrue(res["skip_discord"])
+                self.assertEqual(len(dispatcher.df), 1)
+                self.assertEqual(dispatcher.df.iloc[0]["text"], "Private journal reflection")
+                mock_relay.assert_not_called()
+
+                # 2. Normal post -> Should sync locally AND relay to Discord
+                post_normal = {
+                    "message_id": 11,
+                    "date": 1729687000,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Public journal reflection [reading]"
+                }
+                res_normal = dispatcher.handle_channel_post(post_normal)
+                self.assertIsNotNone(res_normal)
+                self.assertFalse(res_normal["skip_discord"])
+                self.assertEqual(len(dispatcher.df), 2)
+                mock_relay.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

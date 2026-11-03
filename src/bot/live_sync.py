@@ -27,10 +27,15 @@ def get_live_delta_path(export_dir: Optional[Path] = None) -> Path:
     return cache_dir / "live_messages.parquet"
 
 
-def parse_channel_post(post: Dict[str, Any]) -> Dict[str, Any]:
+def parse_channel_post(
+    post: Dict[str, Any],
+    suppress_tags: Optional[List[str]] = None,
+    strip_suppress_tags: bool = True,
+) -> Dict[str, Any]:
     """
     Parse a Telegram Bot API channel_post object into the standard DataFrame row dictionary.
     Guarantees 100% schema alignment with src.parser.load_export.
+    Supports configurable Discord webhook suppression tags (e.g. [nowh]).
     """
     msg_id = int(post.get("message_id", 0))
     raw_date = post.get("date", 0)
@@ -40,8 +45,28 @@ def parse_channel_post(post: Dict[str, Any]) -> Dict[str, Any]:
     # Convert to naive local datetime to match Telegram Desktop HTML exports
     dt_local = dt_utc.astimezone().replace(tzinfo=None)
 
-    text = post.get("text") or post.get("caption") or ""
-    tags = _extract_bracket_tags(text)
+    raw_text = post.get("text") or post.get("caption") or ""
+    tags = _extract_bracket_tags(raw_text)
+
+    # Evaluate Discord webhook suppression
+    skip_discord = False
+    cleaned_text = raw_text
+    if suppress_tags:
+        suppress_set = {t.strip().lower().strip("[]#") for t in suppress_tags if t.strip()}
+        matched_suppress = [t for t in tags if t.lower() in suppress_set]
+        if matched_suppress:
+            skip_discord = True
+            if strip_suppress_tags:
+                tags = [t for t in tags if t.lower() not in suppress_set]
+                for stag in matched_suppress:
+                    cleaned_text = re.sub(rf"\[{re.escape(stag)}\]", "", cleaned_text, flags=re.IGNORECASE)
+                cleaned_lines = [
+                    re.sub(r"[ \t]+", " ", line).strip()
+                    for line in cleaned_text.splitlines()
+                ]
+                cleaned_text = "\n".join(cleaned_lines).strip()
+
+    text = cleaned_text
     first_tag = tags[0] if tags else None
 
     # Media checks and metadata extraction
@@ -120,6 +145,7 @@ def parse_channel_post(post: Dict[str, Any]) -> Dict[str, Any]:
         "day_name": dt_local.strftime("%A"),
         "hour": dt_local.hour,
         "minute": dt_local.minute,
+        "skip_discord": skip_discord,
     }
 
 
@@ -143,18 +169,26 @@ def _load_delta_df(path: Path) -> pd.DataFrame:
     if "reactions" in df.columns:
         df["reactions"] = df["reactions"].apply(_sanitize_reactions)
         df["total_reactions"] = df["reactions"].apply(lambda r: sum(r.values()) if isinstance(r, dict) else 0)
+    if "skip_discord" in df.columns:
+        df["skip_discord"] = df["skip_discord"].fillna(False).astype(bool)
     return df
 
 
 def ingest_channel_post(
     post: Dict[str, Any],
     delta_path: Optional[Path] = None,
+    suppress_tags: Optional[List[str]] = None,
+    strip_suppress_tags: bool = True,
 ) -> Tuple[Dict[str, Any], bool]:
     """
     Ingest a channel post (new or edited) and persist it into the live delta Parquet file.
     Returns (parsed_row_dict, is_new_entry).
     """
-    row = parse_channel_post(post)
+    row = parse_channel_post(
+        post,
+        suppress_tags=suppress_tags,
+        strip_suppress_tags=strip_suppress_tags,
+    )
     path = delta_path or get_live_delta_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 

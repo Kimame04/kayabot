@@ -5,7 +5,7 @@ Parses local .env file or environment variables with zero third-party dependenci
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 from typing import Optional
@@ -20,6 +20,15 @@ class BotConfig:
     discord_webhook_url: Optional[str] = None
     discord_author_name: str = "Journal"
     discord_author_icon_url: Optional[str] = None
+    discord_suppress_tags: list[str] = field(default_factory=lambda: ["nowh"])
+    discord_strip_suppress_tags: bool = True
+
+    def is_suppressed(self, tags: list[str]) -> bool:
+        """True if any tag matches configured discord_suppress_tags."""
+        if not self.discord_suppress_tags or not tags:
+            return False
+        suppress_set = {t.lower().strip("[]#") for t in self.discord_suppress_tags if t.strip()}
+        return any(t.lower() in suppress_set for t in tags)
 
     @property
     def is_configured(self) -> bool:
@@ -82,6 +91,14 @@ def load_config(env_file: Optional[Path] = None) -> BotConfig:
     discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL") or file_vars.get("DISCORD_WEBHOOK_URL")
     author_name = os.environ.get("DISCORD_AUTHOR_NAME") or file_vars.get("DISCORD_AUTHOR_NAME") or "Journal"
     author_icon = os.environ.get("DISCORD_AUTHOR_ICON_URL") or file_vars.get("DISCORD_AUTHOR_ICON_URL")
+    suppress_tags_raw = os.environ.get("DISCORD_SUPPRESS_TAGS") or file_vars.get("DISCORD_SUPPRESS_TAGS", "nowh")
+    suppress_tags = [
+        t.strip().lower().strip("[]#")
+        for t in suppress_tags_raw.split(",")
+        if t.strip()
+    ]
+    strip_tags_raw = os.environ.get("DISCORD_STRIP_SUPPRESS_TAGS") or file_vars.get("DISCORD_STRIP_SUPPRESS_TAGS", "true")
+    strip_suppress_tags = str(strip_tags_raw).strip().lower() in ("true", "1", "yes")
 
     return BotConfig(
         bot_token=token.strip(),
@@ -91,6 +108,8 @@ def load_config(env_file: Optional[Path] = None) -> BotConfig:
         discord_webhook_url=str(discord_webhook).strip() if discord_webhook else None,
         discord_author_name=str(author_name).strip(),
         discord_author_icon_url=str(author_icon).strip() if author_icon else None,
+        discord_suppress_tags=suppress_tags,
+        discord_strip_suppress_tags=strip_suppress_tags,
     )
 
 

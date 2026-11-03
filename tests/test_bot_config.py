@@ -45,6 +45,42 @@ class TestBotConfig(unittest.TestCase):
         finally:
             temp_path.unlink()
 
+    def test_suppress_tags_config(self):
+        # 1. Default suppression tag
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".env") as f:
+            f.write('TELEGRAM_BOT_TOKEN="token_123"\n')
+            f.flush()
+            temp_path = Path(f.name)
+
+        try:
+            cfg = load_config(env_file=temp_path)
+            self.assertEqual(cfg.discord_suppress_tags, ["nowh"])
+            self.assertTrue(cfg.discord_strip_suppress_tags)
+            self.assertTrue(cfg.is_suppressed(["nowh"]))
+            self.assertTrue(cfg.is_suppressed(["NOWH"]))
+            self.assertFalse(cfg.is_suppressed(["reading"]))
+            self.assertFalse(cfg.is_suppressed([]))
+        finally:
+            temp_path.unlink()
+
+        # 2. Custom multiple suppression tags & strip disabled
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".env") as f:
+            f.write('TELEGRAM_BOT_TOKEN="token_123"\n')
+            f.write('DISCORD_SUPPRESS_TAGS="nowh, [private], #secret"\n')
+            f.write('DISCORD_STRIP_SUPPRESS_TAGS="false"\n')
+            f.flush()
+            temp_path = Path(f.name)
+
+        try:
+            cfg2 = load_config(env_file=temp_path)
+            self.assertEqual(cfg2.discord_suppress_tags, ["nowh", "private", "secret"])
+            self.assertFalse(cfg2.discord_strip_suppress_tags)
+            self.assertTrue(cfg2.is_suppressed(["private"]))
+            self.assertTrue(cfg2.is_suppressed(["SECRET"]))
+            self.assertFalse(cfg2.is_suppressed(["random"]))
+        finally:
+            temp_path.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

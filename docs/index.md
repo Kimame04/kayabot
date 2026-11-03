@@ -1,6 +1,6 @@
-# Telegram Journal Analytics
+# JijiBot 🐾 | Telegram Companion & Discord Relay
 
-Offline, privacy-first analytics and time capsule engine for personal Telegram channel exports.
+Offline, privacy-first reflection familiar, real-time Discord webhook stream, and analytical time-capsule engine for personal Telegram channels.
 
 ---
 
@@ -105,6 +105,16 @@ Spotify Wrapped-style retrospective highlighting your annual or all-time writing
 
 ---
 
+### 6. JijiBot Companion & Live Discord Webhook Relay
+A silent 24/7 background daemon (`scripts/setup_daemon.py`) that captures live channel reflections, merges them with historical archives, and streams them into Discord:
+- **Circadian Theming:** Dynamic embed borders adapt to the reflection's time of day.
+- **Rich Media Support:** Mirrors attached photos and videos cleanly to Discord.
+- **Selective Privacy:** Tag private reflections to archive them locally while skipping the Discord stream.
+- **In-Chat Familiar Commands:** Interactive private DM queries (`/otd`, `/stats`, `/random`, `/tag <name>`).
+- **Resilient Recovery:** Failsafe queue auto-delivers reflections if the machine sleeps or loses connectivity.
+
+---
+
 ## Quickstart
 
 ### 1. Setup Environment
@@ -118,7 +128,16 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Run on Synthetic Benchmark
+### 2. Run JijiBot Background Service
+```bash
+# Install and run 24/7 daemon on macOS
+python -m scripts.setup_daemon install
+
+# View status & logs
+python -m scripts.setup_daemon status
+```
+
+### 3. Run on Synthetic Benchmark
 ```bash
 # Generate 400 mock entries (Dec 2023 - Sep 2026)
 python -m scripts.generate_synthetic_export --output-dir "ChatExport_sample"
@@ -133,7 +152,7 @@ python -m scripts.run_tag_lifecycles --export-dir "ChatExport_sample"
 python -m scripts.run_circadian --export-dir "ChatExport_sample"
 ```
 
-### 3. Run on Real Telegram Export
+### 4. Run on Real Telegram Export
 Export chat history in Telegram Desktop as HTML:
 ```bash
 # Place export in repo and point to it
@@ -143,9 +162,9 @@ python -m scripts.run_otd --date 04-20 --window 2
 python -m scripts.run_otd --random
 ```
 
-### 4. Run Automated Tests
+### 5. Run Automated Tests
 ```bash
-# 100% self-contained; passes without private data
+# 100% self-contained; all 68 tests pass without private data
 python -m unittest discover tests
 ```
 
@@ -153,15 +172,7 @@ python -m unittest discover tests
 
 ## Potential Future Features
 
-- **Telegram Bot Integration:** An automated companion bot that pushes daily "On This Day" flashback messages directly to your channel or DM, eliminating manual export steps.
 - **Concern & Anxiety Evolution:** Longitudinal tracking of worries, stressors, and emotional themes over time to see how past challenges evolved and resolved.
 - **"Ask Past You":** Semantic search and conversational Q&A (RAG) over your journal history to query what you thought or felt about specific topics in the past.
 - **Thought Chains & Self-Replies:** Tree visualization and latency analysis tracking how monologue threads and self-replies develop across weeks or months.
 - **Habit & Consistency Calendar Grid:** Full-year GitHub-style daily commit matrix showing journaling density and streak continuity.
-
----
-
-
-## Caching
-
-It caches unless the export is changed.

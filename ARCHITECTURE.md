@@ -101,7 +101,7 @@ To support real-time sync without requiring constant full HTML re-exports:
 
 ---
 
-## 3. Telegram Companion Bot Architecture
+## 3. JijiBot: Telegram Companion & Discord Relay Architecture
 
 ```mermaid
 flowchart TD
@@ -153,5 +153,5 @@ flowchart TD
 * **Zero External Framework Dependencies:** Implemented using standard library `urllib.request`. Zero async framework lock-in (`python-telegram-bot` or `aiogram` bloat avoided).
 * **Strict User Whitelist:** Private DM interactions are checked against `TELEGRAM_CHAT_ID`. Non-authorized users receive an immediate `Access Denied` card and are logged.
 * **Defensive Message Chunking:** Telegram strictly enforces a 4,096-character limit per message. `formatter.py` escapes HTML special characters, truncates massive monolithic entries to 500 characters, and breaks multi-year flashbacks into chained chunks of $< 4,000$ characters.
-* **Fail-Safe Discord Webhook Relay:** When `DISCORD_WEBHOOK_URL` is set, live channel posts are mirrored into Discord as rich embed cards with local timezone timestamps, bracket tags, and word counts. Network failures or Discord rate limits are isolated and will never impede Telegram ingestion or Parquet caching.
+* **Fail-Safe Discord Webhook Relay:** When `DISCORD_WEBHOOK_URL` is set, live channel posts are mirrored into Discord as rich embed cards with circadian time-of-day border colors, edge-to-edge photos, bracket tags, and word counts. Zero-token-leak in-memory media streaming and configurable selective suppression (`[nowh]`). Network failures or Discord rate limits are isolated into a persistent offline queue (`.cache/pending_discord_relays.json`) and replayed automatically.
 * **macOS Background Service:** Managed via standard user `launchd` plist (`~/Library/LaunchAgents/com.kieran.telegram_journal_bot.plist`) with `KeepAlive: true` and unbuffered stdout logging to `output/bot.log`.
