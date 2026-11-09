@@ -147,6 +147,8 @@ class BotDispatcher:
             "• <code>/random</code> — Discover a random past active journal day\n"
             "• <code>/stats</code> — High-level intelligence scorecard & streaks\n"
             "• <code>/tag &lt;name&gt;</code> — Search interest tag mentions (e.g. <code>/tag f1</code>)\n"
+            "• <code>/delete &lt;id&gt;</code> — Delete a reflection from archive & Discord\n"
+            "• <code>/reconcile</code> — Reconcile deleted channel posts\n"
             "• <code>/help</code> — Show this manual\n\n"
             "✨ <i>Tip: Tap the buttons below to quickly explore your archive!</i>"
         )
@@ -301,6 +303,16 @@ class BotDispatcher:
                 self.handle_tag(chat_id, arg)
             else:
                 self.client.send_message(chat_id, "Usage: <code>/tag &lt;name&gt;</code> (e.g. <code>/tag f1</code>)")
+        elif cmd in ("/delete", "/del"):
+            if arg:
+                self.handle_delete(chat_id, arg)
+            else:
+                self.client.send_message(
+                    chat_id,
+                    "Usage: <code>/delete &lt;id&gt;</code> (e.g. <code>/delete 101</code>)"
+                )
+        elif cmd in ("/reconcile", "/sync"):
+            self.handle_reconcile(chat_id)
         else:
             # If user sent plain text date (e.g. "Sep 15" or "09-15"), try to parse as OTD
             try:
@@ -311,6 +323,119 @@ class BotDispatcher:
                     chat_id,
                     "❓ Unknown command. Send <code>/help</code> to see available actions."
                 )
+
+    def handle_delete(self, chat_id: int | str, id_arg: str) -> None:
+        """Purge a reflection from the unified journal archive, tombstone list, and Discord mirror."""
+        from src.bot.discord_relay import delete_discord_relay
+        from src.bot.live_sync import delete_channel_post
+
+        clean_id_str = id_arg.strip().lstrip("#")
+        try:
+            target_id = int(clean_id_str)
+        except ValueError:
+            self.client.send_message(
+                chat_id,
+                f"⚠️ Invalid entry ID: <code>{escape_html(id_arg)}</code>. Expected a number (e.g. <code>/delete 101</code>)."
+            )
+            return
+
+        matches = self.df[self.df["id"] == target_id]
+        if matches.empty:
+            self.client.send_message(
+                chat_id,
+                f"❓ Reflection #{target_id} not found in journal archive."
+            )
+            return
+
+        row = matches.iloc[0].to_dict()
+        sample_text = str(row.get("text") or "")[:80]
+        if len(str(row.get("text") or "")) > 80:
+            sample_text += "..."
+
+        # 1. Delete on Discord if message was relayed
+        discord_msg_id = row.get("discord_message_id")
+        if self.config.has_discord_relay and discord_msg_id:
+            delete_discord_relay(self.config.discord_webhook_url, str(discord_msg_id))
+
+        # 2. Try to delete on Telegram channel if configured
+        if self.config.channel_id:
+            try:
+                self.client.delete_message(self.config.channel_id, target_id)
+            except Exception:
+                pass
+
+        # 3. Purge from local live delta Parquet & register in tombstone store
+        delete_channel_post(target_id, delta_path=self.delta_path)
+
+        # 4. Remove from in-memory DataFrame
+        self.df = self.df[self.df["id"] != target_id].reset_index(drop=True)
+
+        print(f"🗑️ [Bot] Reflection #{target_id} deleted by user command.")
+        preview_block = f"\n\n<i>\"{escape_html(sample_text)}\"</i>" if sample_text else ""
+        self.client.send_message(
+            chat_id,
+            f"🗑️ <b>Reflection #{target_id} Deleted</b>\nRemoved from journal archive and Discord mirror.{preview_block}"
+        )
+
+    def run_channel_reconciliation(self, notify: bool = False, limit: int = 50) -> List[int]:
+        """
+        Run active channel reconciliation probe.
+        Detects any posts deleted directly in the Telegram channel,
+        purges them from Parquet & Discord, and optionally notifies the owner via DM.
+        """
+        if not self.config.channel_id:
+            return []
+
+        from src.bot.live_sync import reconcile_channel_deletions
+
+        reconciled = reconcile_channel_deletions(
+            self.client,
+            self.config.channel_id,
+            delta_path=self.delta_path,
+            discord_webhook_url=self.config.discord_webhook_url,
+            limit=limit,
+        )
+
+        if reconciled:
+            self.df = self.df[~self.df["id"].isin(reconciled)].reset_index(drop=True)
+            id_list_str = ", ".join(f"#{i}" for i in reconciled)
+            print(f"🗑️ [LiveSync] Detected direct channel deletion for {len(reconciled)} reflection(s): {id_list_str} — pruned from archive and Discord.")
+            if notify and self.config.chat_id:
+                try:
+                    self.client.send_message(
+                        self.config.chat_id,
+                        f"🗑️ <b>Channel Deletion Detected</b>\n"
+                        f"Detected {len(reconciled)} reflection(s) deleted directly in your channel: {id_list_str}\n"
+                        f"Automatically removed from journal archive and Discord mirror."
+                    )
+                except Exception:
+                    pass
+
+        return reconciled
+
+    def handle_reconcile(self, chat_id: int | str) -> None:
+        """Run active channel reconciliation probe to detect and purge deleted channel posts."""
+        if not self.config.channel_id:
+            self.client.send_message(
+                chat_id,
+                "⚠️ Channel ID is not yet configured. Post in your channel first to auto-discover."
+            )
+            return
+
+        self.client.send_message(chat_id, "🔍 <i>Reconciling recent channel posts...</i>")
+        reconciled = self.run_channel_reconciliation(notify=False)
+
+        if reconciled:
+            id_list_str = ", ".join(f"#{i}" for i in reconciled)
+            self.client.send_message(
+                chat_id,
+                f"🧹 <b>Reconciliation Complete</b>\nDetected and purged {len(reconciled)} deleted channel post(s): {id_list_str}"
+            )
+        else:
+            self.client.send_message(
+                chat_id,
+                "✅ <b>Archive in Sync</b>\nAll probed channel posts exist in Telegram."
+            )
 
     def dispatch_callback_query(self, callback: Dict[str, Any]) -> None:
         """Handle inline button callback queries."""

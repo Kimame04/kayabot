@@ -548,6 +548,192 @@ class TestLiveSync(unittest.TestCase):
                 mock_send.assert_called_once()
                 self.assertEqual(res5["discord_message_id"], "discord_snowflake_recovered")
 
+    def test_delete_channel_post_and_tombstone(self):
+        from src.bot.live_sync import (
+            delete_channel_post,
+            get_deleted_ids,
+            get_deleted_ids_path,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "del_test.parquet"
+            tombstone_file = Path(tmp_dir) / "deleted_ids.json"
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file):
+                post = {
+                    "message_id": 999,
+                    "date": 1729684800,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Reflection to be purged",
+                }
+                ingest_channel_post(post, delta_path=delta_path)
+
+                # Confirm it exists
+                df_before = pd.read_parquet(delta_path)
+                self.assertIn(999, df_before["id"].values)
+
+                # Delete the post
+                removed = delete_channel_post(999, delta_path=delta_path)
+                self.assertIsNotNone(removed)
+                self.assertEqual(removed["id"], 999)
+
+                # Confirm removed from delta Parquet
+                df_after = pd.read_parquet(delta_path)
+                self.assertNotIn(999, df_after["id"].values)
+
+                # Confirm added to tombstone IDs
+                del_ids = get_deleted_ids()
+                self.assertIn(999, del_ids)
+
+    def test_reconcile_channel_deletions(self):
+        from src.bot.client import TelegramAPIError
+        from src.bot.live_sync import reconcile_channel_deletions
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "reconcile.parquet"
+            tombstone_file = Path(tmp_dir) / "deleted_ids.json"
+
+            post1 = {"message_id": 101, "date": 1729684800, "chat": {"id": -100123, "type": "channel"}, "text": "Post 1"}
+            post2 = {"message_id": 102, "date": 1729684900, "chat": {"id": -100123, "type": "channel"}, "text": "Post 2"}
+            ingest_channel_post(post1, delta_path=delta_path)
+            ingest_channel_post(post2, delta_path=delta_path)
+
+            mock_client = MagicMock()
+            # Post 101 was deleted in Telegram (raises 400 not found)
+            # Post 102 still exists in Telegram (succeeds)
+            mock_client.edit_message_reply_markup.side_effect = [
+                TelegramAPIError("Bad Request: message to edit not found", 400),
+                {"message_id": 102},
+            ]
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file), \
+                 patch("src.bot.discord_relay.delete_discord_relay") as mock_discord_del:
+
+                deleted = reconcile_channel_deletions(
+                    mock_client,
+                    channel_id="-100123",
+                    delta_path=delta_path,
+                    discord_webhook_url="https://discord.com/api/webhooks/1/2",
+                )
+
+                self.assertEqual(deleted, [101])
+                df_remaining = pd.read_parquet(delta_path)
+                self.assertEqual(list(df_remaining["id"]), [102])
+
+    def test_handle_delete_command_success(self):
+        client = MagicMock(spec=TelegramClient)
+        config = BotConfig(
+            bot_token="fake_token",
+            chat_id="12345",
+            channel_id="-100123",
+            discord_webhook_url="https://discord.com/api/webhooks/123/abc",
+        )
+        initial_df = pd.DataFrame([{
+            "id": 555,
+            "timestamp": datetime(2026, 11, 1, 12, 0),
+            "text": "Thought to delete [temp]",
+            "discord_message_id": "discord_snow_555",
+        }])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "del_cmd.parquet"
+            tombstone_file = Path(tmp_dir) / "del_ids.json"
+            dispatcher = BotDispatcher(client, config, initial_df, delta_path=delta_path)
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file), \
+                 patch("src.bot.discord_relay.delete_discord_relay") as mock_discord_del:
+
+                # Dispatch /delete 555 from whitelisted user 12345
+                msg = {
+                    "chat": {"id": 12345},
+                    "from": {"id": 12345},
+                    "text": "/delete 555",
+                }
+                dispatcher.dispatch_message(msg)
+
+                # Verify purged from dispatcher.df
+                self.assertNotIn(555, dispatcher.df["id"].values)
+
+                # Verify delete_discord_relay called with snowflake
+                mock_discord_del.assert_called_once_with(
+                    "https://discord.com/api/webhooks/123/abc",
+                    "discord_snow_555",
+                )
+
+                # Verify Telegram channel delete called
+                client.delete_message.assert_called_once_with("-100123", 555)
+
+                # Verify response sent to user
+                client.send_message.assert_called_once()
+                self.assertIn("Reflection #555 Deleted", client.send_message.call_args[0][1])
+
+    def test_handle_delete_command_security_blocked(self):
+        client = MagicMock(spec=TelegramClient)
+        config = BotConfig(
+            bot_token="fake_token",
+            chat_id="12345",  # authorized owner
+        )
+        initial_df = pd.DataFrame([{"id": 555, "text": "Protected"}])
+        dispatcher = BotDispatcher(client, config, initial_df)
+
+        # Unauthorized user 999 attempts to delete
+        msg = {
+            "chat": {"id": 999},
+            "from": {"id": 999},
+            "text": "/delete 555",
+        }
+        dispatcher.dispatch_message(msg)
+
+        # Still in df
+        self.assertIn(555, dispatcher.df["id"].values)
+        client.send_message.assert_called_once()
+        self.assertIn("Access Denied", client.send_message.call_args[0][1])
+
+    def test_run_channel_reconciliation_automated_detection(self):
+        from src.bot.client import TelegramAPIError
+
+        client = MagicMock(spec=TelegramClient)
+        config = BotConfig(
+            bot_token="fake_token",
+            chat_id="12345",
+            channel_id="-100123",
+            discord_webhook_url="https://discord.com/api/webhooks/123/abc",
+        )
+        initial_df = pd.DataFrame([
+            {"id": 111, "text": "Post 111", "discord_message_id": "disc_111"},
+            {"id": 222, "text": "Post 222", "discord_message_id": "disc_222"},
+        ])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "auto_rec.parquet"
+            tombstone_file = Path(tmp_dir) / "tomb.json"
+
+            ingest_channel_post({"message_id": 111, "date": 1729684800, "chat": {"id": -100123, "type": "channel"}, "text": "Post 111"}, delta_path=delta_path)
+            ingest_channel_post({"message_id": 222, "date": 1729684900, "chat": {"id": -100123, "type": "channel"}, "text": "Post 222"}, delta_path=delta_path)
+
+            dispatcher = BotDispatcher(client, config, initial_df, delta_path=delta_path)
+
+            # Simulate Telegram channel response: 111 was deleted directly from channel
+            client.edit_message_reply_markup.side_effect = [
+                TelegramAPIError("Bad Request: message to edit not found", 400),
+                {"message_id": 222},
+            ]
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file), \
+                 patch("src.bot.discord_relay.delete_discord_relay") as mock_discord_del:
+
+                purged = dispatcher.run_channel_reconciliation(notify=True)
+
+                self.assertIn(111, purged)
+                self.assertNotIn(111, dispatcher.df["id"].values)
+                # Verify DM notification sent to journal owner
+                client.send_message.assert_called_once()
+                self.assertIn("Channel Deletion Detected", client.send_message.call_args[0][1])
+
 
 if __name__ == "__main__":
     unittest.main()

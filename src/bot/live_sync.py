@@ -386,8 +386,133 @@ def load_unified_journal(
             live_count = len(unified) - len(base_df)
             if live_count > 0:
                 print(f"[LiveSync] Merged {live_count} live delta entries with historical archive.")
+
+        # Filter out tombstoned/deleted IDs
+        deleted_ids = get_deleted_ids(export_dir)
+        if deleted_ids and not unified.empty:
+            orig_len = len(unified)
+            unified = unified[~unified["id"].isin(deleted_ids)].reset_index(drop=True)
+            purged = orig_len - len(unified)
+            if verbose and purged > 0:
+                print(f"[LiveSync] Filtered {purged} deleted/tombstoned reflection(s) from unified archive.")
+
         return unified
     except Exception as e:
         if verbose:
             print(f"[LiveSync] Warning: Could not read live delta ({e}), using base archive.")
         return base_df
+
+
+def get_deleted_ids_path(export_dir: Optional[Path] = None) -> Path:
+    """Return path to persistent tombstone store for deleted reflection IDs."""
+    if export_dir and export_dir.exists() and export_dir.is_dir():
+        cache_dir = export_dir / ".cache"
+    else:
+        cache_dir = get_repo_root() / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "deleted_ids.json"
+
+
+def get_deleted_ids(export_dir: Optional[Path] = None) -> set[int]:
+    """Load set of tombstoned/deleted reflection message IDs."""
+    path = get_deleted_ids_path(export_dir)
+    if not path.exists():
+        return set()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return {int(i) for i in data if str(i).isdigit()}
+    except Exception:
+        return set()
+
+
+def record_deleted_id(msg_id: int, export_dir: Optional[Path] = None) -> None:
+    """Record a reflection ID in the persistent tombstone store."""
+    path = get_deleted_ids_path(export_dir)
+    current = get_deleted_ids(export_dir)
+    current.add(int(msg_id))
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(sorted(list(current)), f, indent=2)
+    except Exception as e:
+        import logging
+        logging.getLogger("live_sync").warning(f"[LiveSync] Failed to record tombstone for #{msg_id}: {e}")
+
+
+def delete_channel_post(
+    msg_id: int,
+    delta_path: Optional[Path] = None,
+    export_dir: Optional[Path] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Purge a reflection from the live delta Parquet file and register its ID in the tombstone store.
+    Returns the removed row dictionary (including discord_message_id) if found in delta.
+    """
+    record_deleted_id(msg_id, export_dir=export_dir)
+    path = delta_path or get_live_delta_path(export_dir)
+
+    removed_row: Optional[Dict[str, Any]] = None
+    if path.exists():
+        try:
+            df = _load_delta_df(path)
+            if not df.empty and msg_id in df["id"].values:
+                match = df.loc[df["id"] == msg_id].iloc[0]
+                removed_row = match.to_dict()
+                df = df[df["id"] != msg_id].reset_index(drop=True)
+                _save_delta_df(df, path)
+        except Exception as e:
+            import logging
+            logging.getLogger("live_sync").warning(f"[LiveSync] Failed to purge #{msg_id} from delta: {e}")
+
+    return removed_row
+
+
+def reconcile_channel_deletions(
+    client: Any,
+    channel_id: int | str,
+    delta_path: Optional[Path] = None,
+    export_dir: Optional[Path] = None,
+    discord_webhook_url: Optional[str] = None,
+    limit: int = 50,
+) -> List[int]:
+    """
+    Active reconciliation probe. Checks if the latest 'limit' delta messages
+    still exist in the Telegram channel using zero-noise edit_message_reply_markup.
+    Automatically purges deleted entries locally and from Discord.
+    Returns list of detected deleted message IDs.
+    """
+    from src.bot.client import TelegramAPIError
+    from src.bot.discord_relay import delete_discord_relay
+
+    path = delta_path or get_live_delta_path(export_dir)
+    if not path.exists():
+        return []
+
+    try:
+        df = _load_delta_df(path)
+        if df.empty:
+            return []
+    except Exception:
+        return []
+
+    probe_entries = df.tail(limit).to_dict(orient="records")
+    reconciled_ids: List[int] = []
+
+    for entry in probe_entries:
+        mid = int(entry["id"])
+        try:
+            # Zero-noise probe: attempts to set reply markup (which is already None)
+            client.edit_message_reply_markup(chat_id=channel_id, message_id=mid)
+        except TelegramAPIError as e:
+            err_str = str(e).lower()
+            # If message was deleted in Telegram, Telegram returns 400 Bad Request
+            if "message to edit not found" in err_str or "message can't be edited" in err_str or "message_id_invalid" in err_str:
+                deleted_row = delete_channel_post(mid, delta_path=path, export_dir=export_dir)
+                discord_id = (deleted_row or {}).get("discord_message_id") or entry.get("discord_message_id")
+                if discord_webhook_url and discord_id:
+                    delete_discord_relay(discord_webhook_url, str(discord_id))
+                reconciled_ids.append(mid)
+        except Exception:
+            pass
+
+    return reconciled_ids

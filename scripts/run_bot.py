@@ -83,9 +83,24 @@ def main() -> None:
         if flushed:
             print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord on startup.")
 
+    # Reconcile channel deletions on startup
+    if config.channel_id:
+        startup_reconciled = dispatcher.run_channel_reconciliation(notify=False)
+        if startup_reconciled:
+            print(f"🧹 [LiveSync] Reconciled {len(startup_reconciled)} direct channel deletion(s) on startup.")
+
+    last_reconcile_time = time.time()
+    RECONCILE_INTERVAL_SEC = 30  # check for direct channel deletions every 30 seconds
+
     consecutive_errors = 0
     while True:
         try:
+            # Periodic automated channel deletion reconciliation
+            now = time.time()
+            if config.channel_id and (now - last_reconcile_time) >= RECONCILE_INTERVAL_SEC:
+                last_reconcile_time = now
+                dispatcher.run_channel_reconciliation(notify=True)
+
             updates = client.get_updates(offset=offset, timeout=20)
             consecutive_errors = 0
 

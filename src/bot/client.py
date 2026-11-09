@@ -151,3 +151,22 @@ class TelegramClient:
                 return data
         except Exception:
             return None
+
+    def delete_message(self, chat_id: Union[int, str], message_id: int) -> bool:
+        """Delete a message from a chat or channel."""
+        payload = {"chat_id": chat_id, "message_id": message_id}
+        return bool(self._request("deleteMessage", payload=payload))
+
+    def edit_message_reply_markup(
+        self,
+        chat_id: Union[int, str],
+        message_id: int,
+        reply_markup: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Edit a message reply markup; useful for zero-noise existence probing."""
+        payload = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": reply_markup,
+        }
+        return self._request("editMessageReplyMarkup", payload=payload)
