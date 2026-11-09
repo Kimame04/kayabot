@@ -65,6 +65,8 @@ Only your whitelisted `TELEGRAM_CHAT_ID` can interact with the bot:
 | **`/random`** | Pull a random memory from your archive |
 | **`/stats`** | Instant scorecard: total entries, words, book pages, streaks, circadian persona |
 | **`/tag <name>`** | Deep dive into an interest tag (e.g. `/tag reading` or `/tag f1`) |
+| **`/delete <id>`** | Purge a reflection across channel, Discord mirror, and local archive |
+| **`/reconcile`** | Probe recent channel posts to reconcile direct channel deletions |
 | **`/help`** | Command directory and navigation buttons |
 
 > **Daily Morning Flashback:** Run `python -m scripts.send_daily_otd` (supports `--dry-run`) via cron or launchd to receive today's memory card every morning.
@@ -93,7 +95,7 @@ python -m scripts.run_otd             # Terminal flashback feed (--date 09-15 --
 ```bash
 python -m unittest discover tests
 ```
-* **68/68 unit tests passing** with 100% mocked network calls.
+* **81/81 unit tests passing** with 100% mocked network calls.
 * Fully self-contained; tests run against synthetic benchmarks (`ChatExport_sample/`) without needing private data.
 
 ---
