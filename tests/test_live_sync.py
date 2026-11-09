@@ -416,6 +416,138 @@ class TestLiveSync(unittest.TestCase):
                 self.assertEqual(len(dispatcher.df), 2)
                 mock_relay.assert_called_once()
 
+    def test_ingest_preserves_and_updates_discord_message_id(self):
+        from src.bot.live_sync import update_discord_message_id
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "test_discord_id.parquet"
+
+            post = {
+                "message_id": 888,
+                "date": 1729684800,
+                "chat": {"id": -100123, "type": "channel"},
+                "text": "First iteration",
+            }
+            row1, is_new1 = ingest_channel_post(post, delta_path=delta_path)
+            self.assertTrue(is_new1)
+            self.assertIsNone(row1.get("discord_message_id"))
+
+            # Simulate saving discord_message_id
+            update_discord_message_id(888, "discord_snowflake_123", delta_path=delta_path)
+
+            # Re-ingest an edit of post 888
+            post_edit = {
+                "message_id": 888,
+                "date": 1729684800,
+                "edit_date": 1729685000,
+                "chat": {"id": -100123, "type": "channel"},
+                "text": "Second iteration (edited)",
+            }
+            row2, is_new2 = ingest_channel_post(post_edit, delta_path=delta_path)
+            self.assertFalse(is_new2)
+            self.assertTrue(row2["is_edited"])
+            self.assertEqual(row2["discord_message_id"], "discord_snowflake_123")
+
+    def test_handle_channel_post_edit_and_suppress_flow(self):
+        from unittest.mock import patch
+        client = MagicMock(spec=TelegramClient)
+        config = BotConfig(
+            bot_token="fake_token",
+            channel_id="-100123",
+            discord_webhook_url="https://discord.com/api/webhooks/123/abc",
+            discord_suppress_tags=["nowh"],
+        )
+        initial_df = pd.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "flow_delta.parquet"
+            dispatcher = BotDispatcher(client, config, initial_df, delta_path=delta_path)
+
+            with patch("src.bot.discord_relay.send_discord_relay") as mock_send, \
+                 patch("src.bot.discord_relay.edit_discord_relay") as mock_edit, \
+                 patch("src.bot.discord_relay.delete_discord_relay") as mock_delete:
+
+                mock_send.return_value = "discord_snowflake_456"
+                mock_edit.return_value = True
+                mock_delete.return_value = True
+
+                # Step 1: Initial post -> calls send_discord_relay
+                post_init = {
+                    "message_id": 777,
+                    "date": 1729684800,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Initial reflection [coding]",
+                }
+                res1 = dispatcher.handle_channel_post(post_init)
+                self.assertEqual(res1["discord_message_id"], "discord_snowflake_456")
+                mock_send.assert_called_once()
+                mock_edit.assert_not_called()
+                mock_delete.assert_not_called()
+
+                # Step 2: Edit post -> calls edit_discord_relay
+                post_edited = {
+                    "message_id": 777,
+                    "date": 1729684800,
+                    "edit_date": 1729685000,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Updated reflection [coding] [python]",
+                }
+                res2 = dispatcher.handle_channel_post(post_edited)
+                mock_edit.assert_called_once_with(
+                    "https://discord.com/api/webhooks/123/abc",
+                    "discord_snowflake_456",
+                    res2,
+                    author_name="Journal",
+                    author_icon_url=None,
+                )
+
+                # Step 3: Edit post to add [nowh] -> calls delete_discord_relay
+                post_suppressed = {
+                    "message_id": 777,
+                    "date": 1729684800,
+                    "edit_date": 1729685500,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "[nowh] Now private reflection",
+                }
+                res3 = dispatcher.handle_channel_post(post_suppressed)
+                mock_delete.assert_called_once_with(
+                    "https://discord.com/api/webhooks/123/abc",
+                    "discord_snowflake_456",
+                )
+                self.assertIsNone(res3["discord_message_id"])
+
+                # Step 4: Edit post to REMOVE [nowh] -> re-relays via send_discord_relay
+                mock_send.reset_mock()
+                mock_send.return_value = "discord_snowflake_789"
+                post_unsuppressed = {
+                    "message_id": 777,
+                    "date": 1729684800,
+                    "edit_date": 1729686000,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Made public again [reading]",
+                }
+                res4 = dispatcher.handle_channel_post(post_unsuppressed)
+                self.assertEqual(res4["discord_message_id"], "discord_snowflake_789")
+                mock_send.assert_called_once()
+
+                # Step 5: Edit post where edit fails (e.g. 404 deleted on Discord) -> recovers via send_discord_relay
+                mock_send.reset_mock()
+                mock_edit.reset_mock()
+                mock_edit.return_value = False  # simulated 404
+                mock_send.return_value = "discord_snowflake_recovered"
+
+                post_edit_fail = {
+                    "message_id": 777,
+                    "date": 1729684800,
+                    "edit_date": 1729686500,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "text": "Recovered reflection text",
+                }
+                res5 = dispatcher.handle_channel_post(post_edit_fail)
+                mock_edit.assert_called_once()
+                mock_send.assert_called_once()
+                self.assertEqual(res5["discord_message_id"], "discord_snowflake_recovered")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -192,6 +192,14 @@ def parse_channel_post(
             forward_source_type = "hidden_user"
             forward_source_name = post.get("forward_sender_name")
 
+    # Edit metadata
+    edit_date_ts = post.get("edit_date")
+    is_edited = bool(edit_date_ts)
+    edit_date: Optional[datetime] = None
+    if edit_date_ts:
+        edit_utc = datetime.fromtimestamp(edit_date_ts, tz=timezone.utc)
+        edit_date = edit_utc.astimezone().replace(tzinfo=None)
+
     return {
         "id": msg_id,
         "timestamp": dt_local,
@@ -214,6 +222,9 @@ def parse_channel_post(
         "forward_source_type": forward_source_type,
         "forward_source_url": forward_source_url,
         "forward_date": forward_date,
+        "is_edited": is_edited,
+        "edit_date": edit_date,
+        "discord_message_id": None,
         "date": dt_local.date(),
         "year": dt_local.year,
         "month": dt_local.month,
@@ -251,7 +262,35 @@ def _load_delta_df(path: Path) -> pd.DataFrame:
         df["skip_discord"] = df["skip_discord"].fillna(False).astype(bool)
     if "is_forwarded" in df.columns:
         df["is_forwarded"] = df["is_forwarded"].fillna(False).astype(bool)
+    if "is_edited" in df.columns:
+        df["is_edited"] = df["is_edited"].fillna(False).astype(bool)
+    if "discord_message_id" in df.columns:
+        df["discord_message_id"] = df["discord_message_id"].astype(object)
     return df
+
+
+def update_discord_message_id(
+    msg_id: int,
+    discord_message_id: Optional[str],
+    delta_path: Optional[Path] = None,
+) -> None:
+    """Update or clear the stored discord_message_id for an entry in the live delta Parquet file."""
+    path = delta_path or get_live_delta_path()
+    if not path.exists():
+        return
+    try:
+        df = _load_delta_df(path)
+        if df.empty or msg_id not in df["id"].values:
+            return
+        if "discord_message_id" not in df.columns:
+            df["discord_message_id"] = None
+        df.loc[df["id"] == msg_id, "discord_message_id"] = (
+            str(discord_message_id) if discord_message_id else None
+        )
+        _save_delta_df(df, path)
+    except Exception as e:
+        import logging
+        logging.getLogger("live_sync").warning(f"[LiveSync] Failed to update discord_message_id for #{msg_id}: {e}")
 
 
 def ingest_channel_post(
@@ -262,6 +301,7 @@ def ingest_channel_post(
 ) -> Tuple[Dict[str, Any], bool]:
     """
     Ingest a channel post (new or edited) and persist it into the live delta Parquet file.
+    Preserves existing discord_message_id upon edits.
     Returns (parsed_row_dict, is_new_entry).
     """
     row = parse_channel_post(
@@ -284,6 +324,13 @@ def ingest_channel_post(
                 # Check if this ID already existed
                 if row["id"] in existing_df["id"].values:
                     is_new = False
+                    prior_matches = existing_df.loc[existing_df["id"] == row["id"]]
+                    if not prior_matches.empty:
+                        prior_val = prior_matches.iloc[0].get("discord_message_id")
+                        if pd.notna(prior_val) and str(prior_val).strip() and str(prior_val) != "None":
+                            row["discord_message_id"] = str(prior_val).strip()
+                            new_df["discord_message_id"] = row["discord_message_id"]
+
                 # Combine and replace existing ID with updated version
                 combined = pd.concat([existing_df, new_df], ignore_index=True)
                 combined = combined.drop_duplicates(subset=["id"], keep="last")

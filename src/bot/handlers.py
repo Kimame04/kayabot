@@ -384,13 +384,52 @@ class BotDispatcher:
         suppress_note = " [Suppressed from Discord]" if row.get("skip_discord") else ""
         print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']}){fwd_note}{suppress_note}")
 
-        # Relay to Discord if webhook is configured, post is a new entry, and not suppressed
-        if is_new and self.config.has_discord_relay:
+        # Relay to Discord if webhook is configured
+        if self.config.has_discord_relay:
+            from src.bot.discord_relay import (
+                delete_discord_relay,
+                edit_discord_relay,
+                flush_pending_relays,
+                queue_pending_relay,
+                send_discord_relay,
+            )
+            from src.bot.live_sync import update_discord_message_id
+
+            discord_msg_id = row.get("discord_message_id")
+
+            # Case 1: Post is suppressed ([nowh])
             if row.get("skip_discord"):
-                print(f"⏭️ [DiscordRelay] Reflection #{row['id']} suppressed via tag (Discord relay skipped)")
+                if not is_new and discord_msg_id:
+                    # Message was edited to add suppression tag: delete from Discord
+                    del_ok = delete_discord_relay(self.config.discord_webhook_url, str(discord_msg_id))
+                    if not del_ok:
+                        queue_pending_relay(row, action="DELETE", discord_message_id=str(discord_msg_id))
+                    row["discord_message_id"] = None
+                    update_discord_message_id(row["id"], None, delta_path=self.delta_path)
+                    if "discord_message_id" in self.df.columns:
+                        self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = None
+                    print(f"🗑️ [DiscordRelay] Reflection #{row['id']} edited to add suppression tag — deleted from Discord")
+                else:
+                    print(f"⏭️ [DiscordRelay] Reflection #{row['id']} suppressed via tag (Discord relay skipped)")
                 return row
 
-            from src.bot.discord_relay import flush_pending_relays, queue_pending_relay, send_discord_relay
+            # Case 2: Post is an EDITED entry with an existing discord_message_id
+            if not is_new and discord_msg_id:
+                edit_success = edit_discord_relay(
+                    self.config.discord_webhook_url,
+                    str(discord_msg_id),
+                    row,
+                    author_name=self.config.discord_author_name,
+                    author_icon_url=self.config.discord_author_icon_url,
+                )
+                if edit_success:
+                    print(f"✏️ [DiscordRelay] Reflection #{row['id']} edit relayed to Discord (message {discord_msg_id})")
+                    return row
+                else:
+                    print(f"⚠️ [DiscordRelay] Edit failed for reflection #{row['id']} on message {discord_msg_id}; re-dispatching as new message")
+                    # Fall through to Case 3 to recover and re-dispatch
+
+            # Case 3: Post is a NEW entry (or previously un-relayed / re-dispatched edited entry)
             # Flush any prior backlog
             flush_pending_relays(
                 self.config.discord_webhook_url,
@@ -422,7 +461,7 @@ class BotDispatcher:
                         print(f"⚠️ [DiscordRelay] Failed to fetch media from Telegram: {e}")
                         media_warning = "⚠️ Media could not be downloaded (view in Telegram channel)"
 
-            success = send_discord_relay(
+            relay_result = send_discord_relay(
                 self.config.discord_webhook_url,
                 row,
                 file_bytes=file_bytes,
@@ -431,12 +470,18 @@ class BotDispatcher:
                 author_name=self.config.discord_author_name,
                 author_icon_url=self.config.discord_author_icon_url,
             )
-            if success:
+            if relay_result:
+                if relay_result != "true":
+                    row["discord_message_id"] = str(relay_result)
+                    update_discord_message_id(row["id"], str(relay_result), delta_path=self.delta_path)
+                    if "discord_message_id" in self.df.columns:
+                        self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = str(relay_result)
                 media_str = f" with {row.get('media_type')}" if file_bytes else ""
                 fwd_str = f" (forwarded from {row.get('forward_source_name')})" if row.get("is_forwarded") and row.get("forward_source_name") else ""
-                print(f"📢 [DiscordRelay] Reflection #{row['id']}{media_str}{fwd_str} relayed to Discord")
+                unsuppress_str = " (un-suppressed & relayed)" if not is_new else ""
+                print(f"📢 [DiscordRelay] Reflection #{row['id']}{media_str}{fwd_str}{unsuppress_str} relayed to Discord")
             else:
-                queue_pending_relay(row, media_warning=media_warning)
+                queue_pending_relay(row, media_warning=media_warning, action="CREATE")
                 print(f"⚠️ [DiscordRelay] Delivery failed; reflection #{row['id']} queued for retry")
 
         return row

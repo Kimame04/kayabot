@@ -165,7 +165,7 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertTrue(result)
         mock_urlopen.assert_called_once()
         req = mock_urlopen.call_args[0][0]
-        self.assertEqual(req.full_url, dummy_url)
+        self.assertEqual(req.full_url, f"{dummy_url}?wait=true")
         self.assertEqual(req.method, "POST")
         self.assertEqual(req.headers["Content-type"], "application/json")
 
@@ -210,8 +210,10 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertTrue(config_valid.has_discord_relay)
 
     @patch("src.bot.discord_relay.get_pending_queue_path")
+    @patch("src.bot.discord_relay.delete_discord_relay")
+    @patch("src.bot.discord_relay.edit_discord_relay")
     @patch("src.bot.discord_relay.send_discord_relay")
-    def test_queue_and_flush_pending_relays(self, mock_send, mock_queue_path):
+    def test_queue_and_flush_pending_relays(self, mock_send, mock_edit, mock_delete, mock_queue_path):
         import tempfile
         from pathlib import Path
         from src.bot.discord_relay import flush_pending_relays, queue_pending_relay
@@ -220,14 +222,30 @@ class TestDiscordRelay(unittest.TestCase):
             fake_queue = Path(tmpdir) / "pending.json"
             mock_queue_path.return_value = fake_queue
 
-            row = {"id": 201, "text": "Offline entry", "timestamp": datetime(2026, 11, 1, 12, 0, 0)}
-            queue_pending_relay(row)
+            # 1. Queue CREATE action
+            row1 = {"id": 201, "text": "Offline entry", "timestamp": datetime(2026, 11, 1, 12, 0, 0)}
+            queue_pending_relay(row1, action="CREATE")
+
+            # 2. Queue UPDATE action
+            row2 = {"id": 202, "text": "Edited entry", "timestamp": datetime(2026, 11, 1, 13, 0, 0)}
+            queue_pending_relay(row2, action="UPDATE", discord_message_id="msg_edit_123")
+
+            # 3. Queue DELETE action
+            row3 = {"id": 203, "text": "Deleted entry", "timestamp": datetime(2026, 11, 1, 14, 0, 0)}
+            queue_pending_relay(row3, action="DELETE", discord_message_id="msg_del_456")
+
             self.assertTrue(fake_queue.exists())
 
             mock_send.return_value = True
+            mock_edit.return_value = True
+            mock_delete.return_value = True
+
             flushed = flush_pending_relays("https://discord.com/api/webhooks/1/2")
-            self.assertEqual(flushed, 1)
+            self.assertEqual(flushed, 3)
             self.assertFalse(fake_queue.exists())
+            mock_send.assert_called_once()
+            mock_edit.assert_called_once()
+            mock_delete.assert_called_once()
 
     def test_encode_multipart_form(self):
         from src.bot.discord_relay import encode_multipart_form
@@ -300,6 +318,58 @@ class TestDiscordRelay(unittest.TestCase):
         )
         self.assertTrue(result)
         self.assertEqual(mock_urlopen.call_count, 2)
+
+    @patch("urllib.request.urlopen")
+    def test_send_discord_relay_returns_message_id(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_resp.read.return_value = b'{"id": "987654321012345678", "channel_id": "111"}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        row = {"id": 401, "text": "Testing wait=true ID extraction", "word_count": 4}
+        dummy_url = "https://discord.com/api/webhooks/123/token"
+        result = send_discord_relay(dummy_url, row)
+
+        self.assertEqual(result, "987654321012345678")
+        req = mock_urlopen.call_args[0][0]
+        self.assertIn("wait=true", req.full_url)
+
+    @patch("urllib.request.urlopen")
+    def test_edit_discord_relay_success(self, mock_urlopen):
+        from src.bot.discord_relay import edit_discord_relay
+
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        row = {"id": 402, "text": "Edited text reflection", "word_count": 3}
+        dummy_url = "https://discord.com/api/webhooks/123/token?wait=true"
+        success = edit_discord_relay(dummy_url, "987654321012345678", row)
+
+        self.assertTrue(success)
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.get_method(), "PATCH")
+        self.assertEqual(req.full_url, "https://discord.com/api/webhooks/123/token/messages/987654321012345678")
+
+        # Verify edited indicator in footer
+        payload = json.loads(req.data.decode("utf-8"))
+        self.assertIn("(edited)", payload["embeds"][0]["footer"]["text"])
+
+    @patch("urllib.request.urlopen")
+    def test_delete_discord_relay_success(self, mock_urlopen):
+        from src.bot.discord_relay import delete_discord_relay
+
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 204
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        dummy_url = "https://discord.com/api/webhooks/123/token"
+        success = delete_discord_relay(dummy_url, "987654321012345678")
+
+        self.assertTrue(success)
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.get_method(), "DELETE")
+        self.assertEqual(req.full_url, "https://discord.com/api/webhooks/123/token/messages/987654321012345678")
 
 
 if __name__ == "__main__":
