@@ -622,6 +622,82 @@ class TestLiveSync(unittest.TestCase):
                 df_remaining = pd.read_parquet(delta_path)
                 self.assertEqual(list(df_remaining["id"]), [102])
 
+    def test_reconcile_channel_deletions_skips_forwarded(self):
+        from src.bot.live_sync import reconcile_channel_deletions
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "reconcile_fwd.parquet"
+            tombstone_file = Path(tmp_dir) / "deleted_ids.json"
+
+            # Post 201 is forwarded; Post 202 is a normal post
+            post_fwd = {
+                "message_id": 201,
+                "date": 1729684800,
+                "chat": {"id": -100123, "type": "channel"},
+                "text": "Forwarded post",
+                "forward_origin": {"type": "user", "sender_user": {"first_name": "advay"}},
+            }
+            post_normal = {
+                "message_id": 202,
+                "date": 1729684900,
+                "chat": {"id": -100123, "type": "channel"},
+                "text": "Normal post",
+            }
+            ingest_channel_post(post_fwd, delta_path=delta_path)
+            ingest_channel_post(post_normal, delta_path=delta_path)
+
+            mock_client = MagicMock()
+            mock_client.edit_message_reply_markup.return_value = {"message_id": 202}
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file):
+                deleted = reconcile_channel_deletions(
+                    mock_client,
+                    channel_id="-100123",
+                    delta_path=delta_path,
+                )
+
+                self.assertEqual(deleted, [])
+                # Probed only the normal message 202, never probed forwarded 201
+                mock_client.edit_message_reply_markup.assert_called_once_with(chat_id="-100123", message_id=202)
+                df_remaining = pd.read_parquet(delta_path)
+                self.assertIn(201, df_remaining["id"].values)
+                self.assertIn(202, df_remaining["id"].values)
+
+    def test_reconcile_channel_deletions_ignores_cant_be_edited(self):
+        from src.bot.client import TelegramAPIError
+        from src.bot.live_sync import reconcile_channel_deletions
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            delta_path = Path(tmp_dir) / "reconcile_cant_edit.parquet"
+            tombstone_file = Path(tmp_dir) / "deleted_ids.json"
+
+            post = {
+                "message_id": 301,
+                "date": 1729684800,
+                "chat": {"id": -100123, "type": "channel"},
+                "text": "Uneditable message",
+            }
+            ingest_channel_post(post, delta_path=delta_path)
+
+            mock_client = MagicMock()
+            # Returns "message can't be edited" (which is NOT a deletion)
+            mock_client.edit_message_reply_markup.side_effect = TelegramAPIError(
+                "Bad Request: message can't be edited", 400
+            )
+
+            from unittest.mock import patch
+            with patch("src.bot.live_sync.get_deleted_ids_path", return_value=tombstone_file):
+                deleted = reconcile_channel_deletions(
+                    mock_client,
+                    channel_id="-100123",
+                    delta_path=delta_path,
+                )
+
+                self.assertEqual(deleted, [])
+                df_remaining = pd.read_parquet(delta_path)
+                self.assertEqual(list(df_remaining["id"]), [301])
+
     def test_handle_delete_command_success(self):
         client = MagicMock(spec=TelegramClient)
         config = BotConfig(

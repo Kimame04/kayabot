@@ -499,14 +499,18 @@ def reconcile_channel_deletions(
     reconciled_ids: List[int] = []
 
     for entry in probe_entries:
+        # Forwarded messages cannot be edited in Telegram; skip probing to avoid false positive deletions
+        if bool(entry.get("is_forwarded")):
+            continue
+
         mid = int(entry["id"])
         try:
             # Zero-noise probe: attempts to set reply markup (which is already None)
             client.edit_message_reply_markup(chat_id=channel_id, message_id=mid)
         except TelegramAPIError as e:
             err_str = str(e).lower()
-            # If message was deleted in Telegram, Telegram returns 400 Bad Request
-            if "message to edit not found" in err_str or "message can't be edited" in err_str or "message_id_invalid" in err_str:
+            # If message was deleted in Telegram, Telegram returns 400 Bad Request: "message to edit not found"
+            if "message to edit not found" in err_str or "message_id_invalid" in err_str:
                 deleted_row = delete_channel_post(mid, delta_path=path, export_dir=export_dir)
                 discord_id = (deleted_row or {}).get("discord_message_id") or entry.get("discord_message_id")
                 if discord_webhook_url and discord_id:
