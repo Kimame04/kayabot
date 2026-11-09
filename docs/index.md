@@ -1,4 +1,4 @@
-# JijiBot 🐾 | Telegram Companion & Discord Relay
+# KayaBot 🥪 | Telegram Companion & Discord Relay
 
 Offline, privacy-first reflection familiar, real-time Discord webhook stream, and analytical time-capsule engine for personal Telegram channels.
 
@@ -105,12 +105,12 @@ Spotify Wrapped-style retrospective highlighting your annual or all-time writing
 
 ---
 
-### 6. JijiBot Companion & Live Discord Webhook Relay
+### 6. KayaBot Companion & Live Discord Webhook Relay
 A silent 24/7 background daemon (`scripts/setup_daemon.py`) that captures live channel reflections, merges them with historical archives, and streams them into Discord:
 - **Circadian Theming:** Dynamic embed borders adapt to the reflection's time of day.
 - **Rich Media Support:** Mirrors attached photos and videos cleanly to Discord.
 - **Selective Privacy:** Tag private reflections to archive them locally while skipping the Discord stream.
-- **In-Chat Familiar Commands:** Interactive private DM queries (`/otd`, `/stats`, `/random`, `/tag <name>`).
+- **In-Chat Familiar Commands:** Interactive private DM queries (`/otd`, `/stats`, `/random`, `/tag <name>`, `/delete <id>`, `/reconcile`).
 - **Resilient Recovery:** Failsafe queue auto-delivers reflections if the machine sleeps or loses connectivity.
 
 ---
@@ -128,7 +128,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Run JijiBot Background Service
+### 2. Run KayaBot Background Service
 ```bash
 # Install and run 24/7 daemon on macOS
 python -m scripts.setup_daemon install
@@ -164,7 +164,7 @@ python -m scripts.run_otd --random
 
 ### 5. Run Automated Tests
 ```bash
-# 100% self-contained; all 68 tests pass without private data
+# 100% self-contained; all 81 tests pass without private data
 python -m unittest discover tests
 ```
 

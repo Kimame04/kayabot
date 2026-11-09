@@ -1,8 +1,8 @@
-# JijiBot 🐾
+# KayaBot 🥪
 
 > A personal reflection familiar for Telegram channels. Streams live thoughts into Discord with circadian aesthetics, backed by multi-year flashbacks and deep behavioral analytics.
 
-[![Tests](https://img.shields.io/badge/tests-68%20passed-brightgreen.svg)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-81%20passed-brightgreen.svg)](#-testing)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](environment.yml)
 [![Zero Dependency Bot API](https://img.shields.io/badge/bot--api-zero--dependency-orange.svg)](src/bot/client.py)
 [![Privacy First](https://img.shields.io/badge/privacy-100%25%20offline-success.svg)](#-privacy--data-isolation)
@@ -16,7 +16,7 @@
   * **Rich Media:** Automatically mirrors attached photos and videos.
   * **Selective Privacy:** Configurable privacy tags keep sensitive reflections archived locally while skipping Discord.
   * **Offline Resilience:** Failsafe queue auto-delivers reflections if your machine sleeps or disconnects.
-* **💬 In-Chat Familiar:** Chat directly with JijiBot in Telegram for instant multi-year flashbacks (`/otd`), statistics, and topic search.
+* **💬 In-Chat Familiar:** Chat directly with KayaBot in Telegram for instant multi-year flashbacks (`/otd`), statistics, and topic search.
 * **📊 Retrospective Analytics:** Compiles sub-second interactive HTML dashboards: circadian habit curves, tag lifecycles, and Spotify Wrapped-style annual reviews.
 
 ---
@@ -103,5 +103,5 @@ python -m unittest discover tests
 ## 🔒 Privacy & Data Isolation
 
 * **Strictly Local:** Personal exports (`ChatExport_*`), `.cache/`, and `.env` are gitignored.
-* **Access Control:** JijiBot rejects commands from any unverified user ID.
+* **Access Control:** KayaBot rejects commands from any unverified user ID.
 * **Public Demos:** Online [documentation showcase](https://kimame04.github.io/telegram-journal-analytics/) is generated exclusively from synthetic data.

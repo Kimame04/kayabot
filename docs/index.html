@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KayaBot 🥪 | Telegram Companion & Discord Relay</title>
+    <meta name="description" content="Offline, privacy-first reflection familiar, real-time Discord webhook stream, and analytical time-capsule engine for personal Telegram channels.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2226%22 font-size=%2226%22>🥪</text></svg>">
+    
+    <style>
+        :root {
+            --bg-deep: #1e1f22;
+            --bg-sidebar: #2b2d31;
+            --bg-chat: #313338;
+            --bg-card: #2b2d31;
+            --bg-card-hover: #35373c;
+            --bg-tertiary: #232428;
+            --bg-input: #383a40;
+            --text-normal: #dbdee1;
+            --text-header: #f2f3f5;
+            --text-muted: #949ba4;
+            --text-link: #00a8fc;
+            --discord-blurple: #5865F2;
+            --discord-blurple-hover: #4752c4;
+            --discord-green: #57F287;
+            --discord-yellow: #FEE75C;
+            --discord-fuchsia: #EB459E;
+            --discord-coral: #E67E22;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --font-family: 'gg sans', 'Noto Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            --font-code: 'Consolas', 'Andale Mono WT', 'Andale Mono', 'Lucida Console', 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-deep);
+            color: var(--text-normal);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Top Discord Header Bar */
+        .discord-topbar {
+            height: 54px;
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .channel-icon {
+            color: var(--text-muted);
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+
+        .channel-name {
+            color: var(--text-header);
+            font-weight: 700;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .topbar-divider {
+            width: 1px;
+            height: 20px;
+            background-color: var(--border-subtle);
+            margin: 0 4px;
+        }
+
+        .channel-topic {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 480px;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background-color: rgba(87, 242, 135, 0.12);
+            color: var(--discord-green);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--discord-green);
+            box-shadow: 0 0 6px rgba(87, 242, 135, 0.6);
+        }
+
+        /* EXPLICIT GITHUB REPOSITORY LINK */
+        .github-repo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--discord-blurple);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .github-repo-link:hover {
+            background-color: var(--discord-blurple-hover);
+            transform: translateY(-1px);
+        }
+
+        .github-repo-link svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* App Body Layout */
+        .app-body {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 54px);
+            overflow: hidden;
+        }
+
+        /* Left Channel Sidebar */
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-header);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-category {
+            padding: 18px 16px 6px 16px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+        }
+
+        .sidebar-channel-list {
+            list-style: none;
+            padding: 0 8px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-channel-item {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-channel-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 4px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.92rem;
+            font-weight: 500;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .sidebar-channel-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-normal);
+        }
+
+        .sidebar-channel-link.active {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-header);
+            font-weight: 600;
+        }
+
+        .sidebar-channel-link .hash {
+            font-size: 1.15rem;
+            color: #80848e;
+        }
+
+        .badge-live {
+            margin-left: auto;
+            font-size: 0.65rem;
+            background-color: var(--discord-blurple);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+
+        /* User Profile in Sidebar Bottom */
+        .sidebar-profile {
+            background-color: var(--bg-tertiary);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .avatar-wrap {
+            position: relative;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #5865F2, #eb459e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .avatar-status {
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--discord-green);
+            border: 2px solid var(--bg-tertiary);
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.25;
+        }
+
+        .profile-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-header);
+        }
+
+        .profile-sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Chat Feed Area */
+        .chat-area {
+            flex: 1;
+            background-color: var(--bg-chat);
+            overflow-y: auto;
+            padding: 24px 32px 60px 32px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-content-container {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        /* Channel Welcome Banner */
+        .channel-welcome-banner {
+            padding: 24px 0 32px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }
+
+        .welcome-icon-circle {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background-color: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            color: #fff;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .welcome-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-header);
+            margin-bottom: 8px;
+        }
+
+        .welcome-subtitle {
+            font-size: 1rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            max-width: 740px;
+            margin-bottom: 16px;
+        }
+
+        .welcome-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn-discord-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--discord-blurple);
+            color: #fff;
+            text-decoration: none;
+            padding: 9px 18px;
+            border-radius: 5px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-discord-primary:hover {
+            background-color: var(--discord-blurple-hover);
+        }
+
+        .btn-discord-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #4e5058;
+            color: #fff;
+            text-decoration: none;
+            padding: 9px 18px;
+            border-radius: 5px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-discord-secondary:hover {
+            background-color: #6d6f78;
+        }
+
+        /* Discord Message Row */
+        .discord-message {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            margin-top: 12px;
+            position: relative;
+        }
+
+        .message-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #5865f2, #3f51b5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .message-author {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-header);
+        }
+
+        .bot-badge {
+            background-color: var(--discord-blurple);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .message-timestamp {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .message-text {
+            font-size: 0.98rem;
+            line-height: 1.5;
+            color: var(--text-normal);
+            margin-bottom: 12px;
+        }
+
+        .message-text code {
+            background-color: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: var(--font-code);
+            font-size: 0.88rem;
+            color: #f2f3f5;
+        }
+
+        /* Discord Embeds */
+        .discord-embed {
+            background-color: var(--bg-card);
+            border-left: 4px solid var(--discord-blurple);
+            border-radius: 4px;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            max-width: 820px;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+        }
+
+        .discord-embed:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        .embed-author {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .embed-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-header);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .embed-title a {
+            color: var(--text-header);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+
+        .embed-title a:hover {
+            color: var(--text-link);
+            text-decoration: underline;
+        }
+
+        .embed-description {
+            font-size: 0.92rem;
+            color: var(--text-normal);
+            line-height: 1.45;
+            margin-bottom: 14px;
+        }
+
+        .embed-fields-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+            background-color: rgba(0, 0, 0, 0.12);
+            padding: 10px 14px;
+            border-radius: 4px;
+        }
+
+        .embed-field-label {
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+
+        .embed-field-value {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-header);
+        }
+
+        .embed-action-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .embed-launch-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(88, 101, 242, 0.15);
+            color: var(--discord-blurple);
+            border: 1px solid rgba(88, 101, 242, 0.35);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: all 0.15s ease;
+        }
+
+        .embed-launch-btn:hover {
+            background-color: var(--discord-blurple);
+            color: #fff;
+            border-color: var(--discord-blurple);
+            transform: translateY(-1px);
+        }
+
+        .embed-cli-pill {
+            font-family: var(--font-code);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            background-color: var(--bg-tertiary);
+            padding: 6px 10px;
+            border-radius: 4px;
+        }
+
+        /* Circadian Border Colors */
+        .border-night-owl { border-left-color: #5865F2 !important; }
+        .border-morning   { border-left-color: #F1C40F !important; }
+        .border-afternoon { border-left-color: #3498DB !important; }
+        .border-sunset    { border-left-color: #E67E22 !important; }
+        .border-fuchsia   { border-left-color: #EB459E !important; }
+        .border-green     { border-left-color: #57F287 !important; }
+
+        /* Discord Image Preview Cards */
+        .image-preview-card {
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+            margin-top: 8px;
+            background-color: var(--bg-tertiary);
+            max-width: 780px;
+        }
+
+        .image-preview-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-caption {
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            background-color: var(--bg-card);
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        /* Discord Reaction Pills */
+        .reaction-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .reaction-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--text-normal);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .reaction-pill:hover {
+            background-color: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .reaction-count {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        /* Code Block in Discord Style */
+        .discord-codeblock {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 10px 0;
+            font-family: var(--font-code);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #d1d5db;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        /* Slash Command Table */
+        .slash-commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .slash-command-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slash-cmd-badge {
+            background-color: rgba(88, 101, 242, 0.18);
+            color: var(--discord-blurple);
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .slash-cmd-desc {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        /* Footer */
+        .portal-footer {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--discord-blurple);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Mobile Styles */
+        @media (max-width: 860px) {
+            .sidebar {
+                display: none;
+            }
+            .chat-area {
+                padding: 16px;
+            }
+            .channel-topic {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Discord Top Channel Bar -->
+    <header class="discord-topbar">
+        <div class="topbar-left">
+            <span class="channel-icon">#</span>
+            <span class="channel-name">reflections</span>
+            <div class="topbar-divider"></div>
+            <span class="channel-topic">KayaBot Live Relay &amp; Telegram Journal Analytics Portal</span>
+        </div>
+        <div class="topbar-right">
+            <span class="status-pill">
+                <span class="status-dot"></span>
+                KayaBot Active (v2.1)
+            </span>
+            <!-- EXPLICIT REPOSITORY LINK -->
+            <a href="https://github.com/Kimame04/telegram-journal-analytics" target="_blank" rel="noopener noreferrer" class="github-repo-link" title="Open GitHub Repository">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+                GitHub Repo ↗
+            </a>
+        </div>
+    </header>
+
+    <!-- App Body -->
+    <div class="app-body">
+
+        <!-- Sidebar (Discord Channel List) -->
+        <nav class="sidebar" aria-label="Channels">
+            <div class="sidebar-header">
+                <span>🥪 KayaBot HQ</span>
+            </div>
+            
+            <div class="sidebar-category">Text Channels</div>
+            <ul class="sidebar-channel-list">
+                <li class="sidebar-channel-item">
+                    <a href="#welcome" class="sidebar-channel-link active">
+                        <span class="hash">#</span>
+                        <span>reflections</span>
+                        <span class="badge-live">LIVE</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-category">Interactive Demos</div>
+            <ul class="sidebar-channel-list">
+                <li class="sidebar-channel-item">
+                    <a href="demos/dashboard.html" target="_blank" class="sidebar-channel-link">
+                        <span class="hash">#</span>
+                        <span>master-dossier</span>
+                    </a>
+                </li>
+                <li class="sidebar-channel-item">
+                    <a href="demos/wrapped.html" target="_blank" class="sidebar-channel-link">
+                        <span class="hash">#</span>
+                        <span>channel-wrapped</span>
+                    </a>
+                </li>
+                <li class="sidebar-channel-item">
+                    <a href="demos/on_this_day.html" target="_blank" class="sidebar-channel-link">
+                        <span class="hash">#</span>
+                        <span>on-this-day</span>
+                    </a>
+                </li>
+                <li class="sidebar-channel-item">
+                    <a href="demos/tag_lifecycle_report.html" target="_blank" class="sidebar-channel-link">
+                        <span class="hash">#</span>
+                        <span>tag-lifecycles</span>
+                    </a>
+                </li>
+                <li class="sidebar-channel-item">
+                    <a href="demos/circadian_report.html" target="_blank" class="sidebar-channel-link">
+                        <span class="hash">#</span>
+                        <span>circadian-habits</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-category">Source Code &amp; CI</div>
+            <ul class="sidebar-channel-list">
+                <li class="sidebar-channel-item">
+                    <a href="https://github.com/Kimame04/telegram-journal-analytics" target="_blank" rel="noopener noreferrer" class="sidebar-channel-link">
+                        <span class="hash">★</span>
+                        <span>github-repository</span>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Bottom Profile -->
+            <div class="sidebar-profile">
+                <div class="avatar-wrap">
+                    <span>🥪</span>
+                    <div class="avatar-status"></div>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-name">KayaBot</span>
+                    <span class="profile-sub">@kaya0401_bot</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Feed Area -->
+        <main class="chat-area">
+            <div class="chat-content-container">
+
+                <!-- Welcome Header -->
+                <section class="channel-welcome-banner" id="welcome">
+                    <div class="welcome-icon-circle">#</div>
+                    <h1 class="welcome-title">Welcome to #reflections!</h1>
+                    <p class="welcome-subtitle">
+                        This is the official documentation and interactive preview stream for <strong>KayaBot</strong> and the <strong>Telegram Journal Analytics</strong> suite. Offline, privacy-first reflection familiar, real-time Discord webhook stream, and analytical time-capsule engine for personal Telegram channels.
+                    </p>
+                    <div class="welcome-actions">
+                        <a href="https://github.com/Kimame04/telegram-journal-analytics" target="_blank" rel="noopener noreferrer" class="btn-discord-primary">
+                            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                            </svg>
+                            View Repository: Kimame04/telegram-journal-analytics
+                        </a>
+                        <a href="demos/dashboard.html" target="_blank" class="btn-discord-secondary">
+                            🚀 Launch Master Dossier Demo
+                        </a>
+                        <span class="status-pill" style="padding: 8px 12px; font-size: 0.85rem;">
+                            ✓ 81/81 Tests Passing
+                        </span>
+                    </div>
+                </section>
+
+                <!-- Message 1: Interactive Demos -->
+                <article class="discord-message">
+                    <div class="message-avatar">🥪</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">KayaBot</span>
+                            <span class="bot-badge">APP</span>
+                            <span class="message-timestamp">Today at 10:20 AM</span>
+                        </div>
+                        <div class="message-text">
+                            Here are the <strong>Interactive Analytical Dashboards</strong> compiled by the analytics suite. All demos below were generated directly from our 400-message synthetic benchmark (<code>ChatExport_sample/</code>) with <strong>zero private reflections exposed</strong>. Click any card to launch the standalone report:
+                        </div>
+
+                        <!-- Embed 1: Master Dossier -->
+                        <div class="discord-embed border-night-owl">
+                            <div class="embed-author">🖋️ KayaBot • Analytical Master Dossier</div>
+                            <div class="embed-title">
+                                <a href="demos/dashboard.html" target="_blank">📊 Master Intelligence Dossier &amp; Unified Dashboard</a>
+                            </div>
+                            <div class="embed-description">
+                                All-in-one unified intelligence dossier combining Circadian, Lifecycle, Wrapped, and On-This-Day metrics with interactive Plotly visual charts and hero KPIs.
+                            </div>
+                            <div class="embed-fields-grid">
+                                <div>
+                                    <div class="embed-field-label">Dataset Benchmark</div>
+                                    <div class="embed-field-value">Synthetic (Dec 2023 – Sep 2026)</div>
+                                </div>
+                                <div>
+                                    <div class="embed-field-label">Query Latency</div>
+                                    <div class="embed-field-value">~0.2s Parquet Cache</div>
+                                </div>
+                                <div>
+                                    <div class="embed-field-label">Deliverable Format</div>
+                                    <div class="embed-field-value">Standalone Dark-Mode HTML</div>
+                                </div>
+                            </div>
+                            <div class="embed-action-row">
+                                <a href="demos/dashboard.html" target="_blank" class="embed-launch-btn">
+                                    🚀 Launch Master Dossier (dashboard.html) ↗
+                                </a>
+                                <span class="embed-cli-pill">python -m scripts.run_all --open</span>
+                            </div>
+                        </div>
+
+                        <!-- Embed 2: Channel Wrapped -->
+                        <div class="discord-embed border-fuchsia">
+                            <div class="embed-author">🖋️ KayaBot • Retrospective Engine</div>
+                            <div class="embed-title">
+                                <a href="demos/wrapped.html" target="_blank">✨ Channel-Wrapped Retrospective Deck</a>
+                            </div>
+                            <div class="embed-description">
+                                Spotify Wrapped-style interactive dark-mode story deck highlighting annual writing volume, book page equivalents, streak continuity, top fixation tags, and circadian personas (e.g. <em>The Midnight Philosopher</em>).
+                            </div>
+                            <div class="embed-fields-grid">
+                                <div>
+                                    <div class="embed-field-label">Persona Archetype</div>
+                                    <div class="embed-field-value">The Midnight Philosopher 🦉</div>
+                                </div>
+                                <div>
+                                    <div class="embed-field-label">Scope Flexibility</div>
+                                    <div class="embed-field-value">--year 2024 or --all-time</div>
+                                </div>
+                            </div>
+                            <div class="embed-action-row">
+                                <a href="demos/wrapped.html" target="_blank" class="embed-launch-btn">
+                                    🎁 Open Channel-Wrapped (wrapped.html) ↗
+                                </a>
+                                <span class="embed-cli-pill">python -m scripts.run_wrapped</span>
+                            </div>
+                        </div>
+
+                        <!-- Embed 3: On This Day -->
+                        <div class="discord-embed border-morning">
+                            <div class="embed-author">🖋️ KayaBot • Time Capsule Engine</div>
+                            <div class="embed-title">
+                                <a href="demos/on_this_day.html" target="_blank">📅 On This Day (OTD) Multi-Year Flashback</a>
+                            </div>
+                            <div class="embed-description">
+                                Multi-year calendar engine querying what you wrote on today's calendar date across every past year. Features photo indicators, active spans, and compact glassmorphism cards.
+                            </div>
+                            <div class="embed-action-row">
+                                <a href="demos/on_this_day.html" target="_blank" class="embed-launch-btn">
+                                    ⌛ Open On This Day (on_this_day.html) ↗
+                                </a>
+                                <span class="embed-cli-pill">python -m scripts.run_otd --date 09-15</span>
+                            </div>
+                        </div>
+
+                        <!-- Embed 4: Tag Lifecycles -->
+                        <div class="discord-embed border-green">
+                            <div class="embed-author">🖋️ KayaBot • Topic Discovery Engine</div>
+                            <div class="embed-title">
+                                <a href="demos/tag_lifecycle_report.html" target="_blank">🌱 Tag Lifecycles &amp; Hobby Passions</a>
+                            </div>
+                            <div class="embed-description">
+                                Normalizes bracket tags <code>[tag]</code>, computes monthly turnover matrices, and classifies lifespans into Evergreen Passions, Seasonal Bursts, and Emerging Eras via 16-color qualitative streamgraphs.
+                            </div>
+                            <div class="embed-action-row">
+                                <a href="demos/tag_lifecycle_report.html" target="_blank" class="embed-launch-btn">
+                                    🌊 Open Tag Lifecycles (tag_lifecycle_report.html) ↗
+                                </a>
+                                <span class="embed-cli-pill">python -m scripts.run_tag_lifecycles</span>
+                            </div>
+                        </div>
+
+                        <!-- Embed 5: Circadian Habits -->
+                        <div class="discord-embed border-sunset">
+                            <div class="embed-author">🖋️ KayaBot • Circadian Profiler</div>
+                            <div class="embed-title">
+                                <a href="demos/circadian_report.html" target="_blank">🌙 Circadian Rhythms &amp; 24h Distribution</a>
+                            </div>
+                            <div class="embed-description">
+                                Analyzes reflection timestamps to calculate 24-hour message density, peak journaling hours, weekly rhythm heatmaps, and longitudinal Night Owl Index shifts.
+                            </div>
+                            <div class="embed-action-row">
+                                <a href="demos/circadian_report.html" target="_blank" class="embed-launch-btn">
+                                    🕒 Open Circadian Report (circadian_report.html) ↗
+                                </a>
+                                <span class="embed-cli-pill">python -m scripts.run_circadian</span>
+                            </div>
+                        </div>
+
+                        <!-- Reactions -->
+                        <div class="reaction-row">
+                            <div class="reaction-pill"><span>🥪</span> <span class="reaction-count">18</span></div>
+                            <div class="reaction-pill"><span>📊</span> <span class="reaction-count">14</span></div>
+                            <div class="reaction-pill"><span>✨</span> <span class="reaction-count">12</span></div>
+                            <div class="reaction-pill"><span>🚀</span> <span class="reaction-count">16</span></div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Message 2: Visual Previews Showcase -->
+                <article class="discord-message">
+                    <div class="message-avatar">🥪</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">KayaBot</span>
+                            <span class="bot-badge">APP</span>
+                            <span class="message-timestamp">Today at 10:22 AM</span>
+                        </div>
+                        <div class="message-text">
+                            Here is a snapshot preview of the publication-quality visualization charts compiled by the static visual pipeline:
+                        </div>
+
+                        <div class="image-preview-card">
+                            <img src="assets/tag_streamgraph.png" alt="Tag Streamgraph" loading="lazy">
+                            <div class="image-caption">📈 Topic Streamgraph: Monthly tag density and interest surges across synthetic timeline</div>
+                        </div>
+
+                        <div class="image-preview-card">
+                            <img src="assets/circadian_weekly_heatmap.png" alt="Weekly Heatmap" loading="lazy">
+                            <div class="image-caption">📅 Weekly Circadian Heatmap: Journaling density by day of week and hour of day</div>
+                        </div>
+
+                        <div class="image-preview-card">
+                            <img src="assets/tag_lifespans_gantt.png" alt="Tag Lifespans Gantt" loading="lazy">
+                            <div class="image-caption">🌱 Tag Lifespans Gantt: Categorizing passions into Evergreen, Seasonal, and Emerging eras</div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Message 3: In-Chat Companion & Bot Commands -->
+                <article class="discord-message">
+                    <div class="message-avatar">🥪</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">KayaBot</span>
+                            <span class="bot-badge">APP</span>
+                            <span class="message-timestamp">Today at 10:24 AM</span>
+                        </div>
+                        <div class="message-text">
+                            <strong>KayaBot Companion Commands &amp; Live Channel Relay:</strong>
+                            <br>
+                            KayaBot runs 24/7 in the background via macOS <code>launchd</code>, listening for channel reflections, streaming them to Discord with circadian-coded border aesthetics, and handling personal DM commands:
+                        </div>
+
+                        <div class="slash-commands-grid">
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/otd</span>
+                                <span class="slash-cmd-desc">Multi-year flashback for today's calendar date</span>
+                            </div>
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/stats</span>
+                                <span class="slash-cmd-desc">Instant scorecard: entries, words, book pages, circadian persona</span>
+                            </div>
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/random</span>
+                                <span class="slash-cmd-desc">Surface an unexpected serendipitous memory card</span>
+                            </div>
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/tag &lt;name&gt;</span>
+                                <span class="slash-cmd-desc">Deep-dive into an interest tag (e.g. <code>/tag reading</code>)</span>
+                            </div>
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/delete &lt;id&gt;</span>
+                                <span class="slash-cmd-desc">Purge reflection across Telegram channel, Discord mirror &amp; archive</span>
+                            </div>
+                            <div class="slash-command-card">
+                                <span class="slash-cmd-badge">/reconcile</span>
+                                <span class="slash-cmd-desc">Probe recent channel posts to reconcile direct channel deletions</span>
+                            </div>
+                        </div>
+
+                        <div class="message-text" style="margin-top: 14px;">
+                            <strong>Quickstart Terminal Setup:</strong>
+                        </div>
+
+                        <pre class="discord-codeblock"><code># 1. Clone repository
+git clone https://github.com/Kimame04/telegram-journal-analytics.git
+cd telegram-journal-analytics
+
+# 2. Install dependencies & configure credentials
+conda env create -f environment.yml && conda activate tele-journal
+cp .env.example .env
+
+# 3. Start 24/7 background companion daemon
+python -m scripts.setup_daemon install
+
+# 4. Run full analytics suite & open master dashboard
+python -m scripts.run_all --open</code></pre>
+                    </div>
+                </article>
+
+                <!-- Portal Footer -->
+                <footer class="portal-footer">
+                    <div>
+                        <strong>telegram-journal-analytics</strong> • Created with privacy-first engineering, offline execution, and universal decoupled ingestion.
+                    </div>
+                    <div class="footer-links">
+                        <a href="https://github.com/Kimame04/telegram-journal-analytics" target="_blank" rel="noopener noreferrer">⭐ GitHub Repository</a>
+                        <a href="https://github.com/Kimame04/telegram-journal-analytics/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a>
+                        <a href="https://github.com/Kimame04/telegram-journal-analytics/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+                        <a href="demos/dashboard.html" target="_blank">Master Dossier Demo</a>
+                        <a href="demos/wrapped.html" target="_blank">Channel-Wrapped Demo</a>
+                    </div>
+                </footer>
+
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

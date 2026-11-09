@@ -101,7 +101,7 @@ To support real-time sync without requiring constant full HTML re-exports:
 
 ---
 
-## 3. JijiBot: Telegram Companion & Discord Relay Architecture
+## 3. KayaBot: Telegram Companion & Discord Relay Architecture
 
 ```mermaid
 flowchart TD
