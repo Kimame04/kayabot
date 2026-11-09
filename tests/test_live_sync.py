@@ -49,6 +49,86 @@ class TestLiveSync(unittest.TestCase):
         self.assertEqual(row["year"], 2024)
         self.assertEqual(row["month"], 10)
         self.assertEqual(row["day"], 23)
+        self.assertFalse(row["is_forwarded"])
+        self.assertIsNone(row["forward_source_name"])
+
+    def test_parse_forwarded_post_bot_api_7(self):
+        # 1. Channel origin with username and message_id
+        post_channel = {
+            "message_id": 502,
+            "date": 1729684800,
+            "chat": {"id": -1001987654321, "type": "channel"},
+            "text": "Great article on autonomous systems [robotics]",
+            "forward_origin": {
+                "type": "channel",
+                "chat": {"id": -100999, "title": "Tech Dispatch", "username": "techdispatch"},
+                "message_id": 42,
+                "date": 1729680000,
+            },
+        }
+        row = parse_channel_post(post_channel)
+        self.assertTrue(row["is_forwarded"])
+        self.assertEqual(row["forward_source_type"], "channel")
+        self.assertEqual(row["forward_source_name"], "Tech Dispatch")
+        self.assertEqual(row["forward_source_url"], "https://t.me/techdispatch/42")
+        self.assertIsNotNone(row["forward_date"])
+
+        # 2. User origin
+        post_user = {
+            "message_id": 503,
+            "date": 1729684800,
+            "chat": {"id": -1001987654321, "type": "channel"},
+            "text": "Check this note out",
+            "forward_origin": {
+                "type": "user",
+                "sender_user": {"first_name": "Alice", "last_name": "Smith", "username": "alicesmith"},
+                "date": 1729681000,
+            },
+        }
+        row_user = parse_channel_post(post_user)
+        self.assertTrue(row_user["is_forwarded"])
+        self.assertEqual(row_user["forward_source_type"], "user")
+        self.assertEqual(row_user["forward_source_name"], "Alice Smith")
+        self.assertEqual(row_user["forward_source_url"], "https://t.me/alicesmith")
+
+        # 3. Hidden user origin
+        post_hidden = {
+            "message_id": 504,
+            "date": 1729684800,
+            "chat": {"id": -1001987654321, "type": "channel"},
+            "text": "Anonymous snippet",
+            "forward_origin": {
+                "type": "hidden_user",
+                "sender_user_name": "Secret Contributor",
+                "date": 1729682000,
+            },
+        }
+        row_hidden = parse_channel_post(post_hidden)
+        self.assertTrue(row_hidden["is_forwarded"])
+        self.assertEqual(row_hidden["forward_source_type"], "hidden_user")
+        self.assertEqual(row_hidden["forward_source_name"], "Secret Contributor")
+        self.assertIsNone(row_hidden["forward_source_url"])
+
+    def test_parse_forwarded_post_legacy(self):
+        post_legacy = {
+            "message_id": 505,
+            "date": 1729684800,
+            "chat": {"id": -1001987654321, "type": "channel"},
+            "text": "Legacy forwarded message",
+            "forward_date": 1729670000,
+            "forward_from_chat": {
+                "id": -100888,
+                "title": "Old News Channel",
+                "username": "oldnews",
+                "type": "channel",
+            },
+            "forward_from_message_id": 99,
+        }
+        row = parse_channel_post(post_legacy)
+        self.assertTrue(row["is_forwarded"])
+        self.assertEqual(row["forward_source_name"], "Old News Channel")
+        self.assertEqual(row["forward_source_url"], "https://t.me/oldnews/99")
+        self.assertIsNotNone(row["forward_date"])
 
     def test_ingest_and_edit_channel_post(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

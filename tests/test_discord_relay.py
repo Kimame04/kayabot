@@ -90,6 +90,34 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertIn("`[dev]`", fields[0]["value"])
         self.assertIn("`[notes]`", fields[0]["value"])
 
+    def test_format_payload_forwarded_message(self):
+        row = {
+            "id": 105,
+            "timestamp": datetime(2026, 11, 1, 15, 0, 0),
+            "text": "Insightful breakdown of deep learning developments.",
+            "word_count": 6,
+            "tags": ["ai"],
+            "is_forwarded": True,
+            "forward_source_name": "AI Digest",
+            "forward_source_type": "channel",
+            "forward_source_url": "https://t.me/aidigest/100",
+            "forward_date": datetime(2026, 10, 31, 18, 30, 0),
+        }
+        payload = format_discord_payload(row, author_name="Kieran Journal")
+        embed = payload["embeds"][0]
+
+        # Verify Author header includes forward source and link
+        author = embed["author"]
+        self.assertEqual(author["name"], "🖋️ Kieran Journal ↪️ AI Digest")
+        self.assertEqual(author["url"], "https://t.me/aidigest/100")
+
+        # Verify fields include Forwarded field
+        field_names = [f["name"] for f in embed.get("fields", [])]
+        self.assertIn("↪️ Forwarded", field_names)
+        fwd_field = next(f for f in embed["fields"] if f["name"] == "↪️ Forwarded")
+        self.assertIn("[AI Digest](https://t.me/aidigest/100)", fwd_field["value"])
+        self.assertIn("Oct 31, 2026", fwd_field["value"])
+
     def test_format_payload_truncation(self):
         long_text = "A" * 5000
         row = {

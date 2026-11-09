@@ -380,8 +380,9 @@ class BotDispatcher:
         )
 
         status_tag = "New entry" if is_new else "Edited entry"
+        fwd_note = f" [Forwarded from {row['forward_source_name']}]" if row.get("is_forwarded") and row.get("forward_source_name") else ""
         suppress_note = " [Suppressed from Discord]" if row.get("skip_discord") else ""
-        print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']}){suppress_note}")
+        print(f"✨ [LiveSync] {status_tag} #{row['id']} synced ({row['word_count']} words, tags: {row['tags']}){fwd_note}{suppress_note}")
 
         # Relay to Discord if webhook is configured, post is a new entry, and not suppressed
         if is_new and self.config.has_discord_relay:
@@ -432,7 +433,8 @@ class BotDispatcher:
             )
             if success:
                 media_str = f" with {row.get('media_type')}" if file_bytes else ""
-                print(f"📢 [DiscordRelay] Reflection #{row['id']}{media_str} relayed to Discord")
+                fwd_str = f" (forwarded from {row.get('forward_source_name')})" if row.get("is_forwarded") and row.get("forward_source_name") else ""
+                print(f"📢 [DiscordRelay] Reflection #{row['id']}{media_str}{fwd_str} relayed to Discord")
             else:
                 queue_pending_relay(row, media_warning=media_warning)
                 print(f"⚠️ [DiscordRelay] Delivery failed; reflection #{row['id']} queued for retry")

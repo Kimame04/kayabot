@@ -138,6 +138,25 @@ def format_discord_payload(
                 "inline": True,
             })
 
+    # Forwarded source field
+    if row.get("is_forwarded"):
+        source_name = row.get("forward_source_name") or "Unknown Source"
+        source_url = row.get("forward_source_url")
+        source_display = f"[{source_name}]({source_url})" if source_url else f"**{source_name}**"
+
+        fwd_date = row.get("forward_date")
+        if isinstance(fwd_date, datetime):
+            fwd_date_str = fwd_date.strftime("%b %d, %Y %H:%M")
+            fwd_val = f"From {source_display} • {fwd_date_str}"
+        else:
+            fwd_val = f"From {source_display}"
+
+        fields.append({
+            "name": "↪️ Forwarded",
+            "value": fwd_val,
+            "inline": False,
+        })
+
     # Media warning or notice (e.g. over 10MB)
     warning_text = media_warning or row.get("media_warning")
     if warning_text:
@@ -158,9 +177,14 @@ def format_discord_payload(
     color = get_circadian_embed_color(raw_ts)
 
     # Author header block
-    author_dict: Dict[str, Any] = {"name": f"🖋️ {author_name}"}
+    author_header = f"🖋️ {author_name}"
+    if row.get("is_forwarded") and row.get("forward_source_name"):
+        author_header = f"🖋️ {author_name} ↪️ {row['forward_source_name']}"
+    author_dict: Dict[str, Any] = {"name": author_header}
     if author_icon_url:
         author_dict["icon_url"] = author_icon_url
+    if row.get("is_forwarded") and row.get("forward_source_url"):
+        author_dict["url"] = row["forward_source_url"]
 
     embed: Dict[str, Any] = {
         "author": author_dict,

@@ -160,6 +160,15 @@ def parse_telegram_html(file_path: Path) -> List[Dict[str, Any]]:
         has_photo = bool(msg.find("div", class_=re.compile(r"media_photo")))
         has_media = bool(msg.find("div", class_=re.compile(r"media_wrap")))
 
+        # Forward checks
+        fwd_div = msg.find("div", class_=re.compile(r"forwarded"))
+        is_forwarded = bool(fwd_div)
+        forward_source_name: Optional[str] = None
+        if is_forwarded and fwd_div:
+            from_name = fwd_div.find("div", class_="from_name")
+            if from_name:
+                forward_source_name = from_name.get_text().strip()
+
         messages_data.append(
             {
                 "id": msg_id,
@@ -174,6 +183,8 @@ def parse_telegram_html(file_path: Path) -> List[Dict[str, Any]]:
                 "reply_to_id": reply_to_id,
                 "has_photo": has_photo,
                 "has_media": has_media,
+                "is_forwarded": is_forwarded,
+                "forward_source_name": forward_source_name,
             }
         )
 

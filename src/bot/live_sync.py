@@ -119,6 +119,79 @@ def parse_channel_post(
     reply_to = post.get("reply_to_message")
     reply_to_id = int(reply_to["message_id"]) if reply_to and "message_id" in reply_to else None
 
+    # Forward reference (supports Bot API 7.0+ forward_origin and legacy forward fields)
+    is_forwarded = False
+    forward_source_name: Optional[str] = None
+    forward_source_type: Optional[str] = None
+    forward_source_url: Optional[str] = None
+    forward_date: Optional[datetime] = None
+
+    raw_origin = post.get("forward_origin")
+    if isinstance(raw_origin, dict):
+        is_forwarded = True
+        origin_type = raw_origin.get("type")
+        forward_source_type = origin_type
+        origin_date_ts = raw_origin.get("date")
+        if origin_date_ts:
+            origin_utc = datetime.fromtimestamp(origin_date_ts, tz=timezone.utc)
+            forward_date = origin_utc.astimezone().replace(tzinfo=None)
+
+        if origin_type == "channel":
+            chat = raw_origin.get("chat") or {}
+            forward_source_name = chat.get("title") or chat.get("username")
+            username = chat.get("username")
+            orig_msg_id = raw_origin.get("message_id")
+            if username and orig_msg_id:
+                forward_source_url = f"https://t.me/{username}/{orig_msg_id}"
+            elif username:
+                forward_source_url = f"https://t.me/{username}"
+        elif origin_type == "chat":
+            chat = raw_origin.get("sender_chat") or {}
+            forward_source_name = chat.get("title") or chat.get("username")
+            username = chat.get("username")
+            if username:
+                forward_source_url = f"https://t.me/{username}"
+        elif origin_type == "user":
+            u = raw_origin.get("sender_user") or {}
+            name_parts = [u.get("first_name"), u.get("last_name")]
+            forward_source_name = " ".join(filter(None, name_parts)).strip() or u.get("username")
+            if u.get("username"):
+                forward_source_url = f"https://t.me/{u.get('username')}"
+        elif origin_type == "hidden_user":
+            forward_source_name = raw_origin.get("sender_user_name")
+    elif (
+        post.get("forward_date")
+        or post.get("forward_from")
+        or post.get("forward_from_chat")
+        or post.get("forward_sender_name")
+    ):
+        is_forwarded = True
+        legacy_date_ts = post.get("forward_date")
+        if legacy_date_ts:
+            legacy_utc = datetime.fromtimestamp(legacy_date_ts, tz=timezone.utc)
+            forward_date = legacy_utc.astimezone().replace(tzinfo=None)
+
+        if post.get("forward_from_chat"):
+            chat = post["forward_from_chat"]
+            forward_source_type = chat.get("type", "channel")
+            forward_source_name = chat.get("title") or chat.get("username")
+            username = chat.get("username")
+            orig_msg_id = post.get("forward_from_message_id")
+            if username and orig_msg_id:
+                forward_source_url = f"https://t.me/{username}/{orig_msg_id}"
+            elif username:
+                forward_source_url = f"https://t.me/{username}"
+        elif post.get("forward_from"):
+            u = post["forward_from"]
+            forward_source_type = "user"
+            name_parts = [u.get("first_name"), u.get("last_name")]
+            forward_source_name = " ".join(filter(None, name_parts)).strip() or u.get("username")
+            if u.get("username"):
+                forward_source_url = f"https://t.me/{u.get('username')}"
+        elif post.get("forward_sender_name"):
+            forward_source_type = "hidden_user"
+            forward_source_name = post.get("forward_sender_name")
+
     return {
         "id": msg_id,
         "timestamp": dt_local,
@@ -136,6 +209,11 @@ def parse_channel_post(
         "media_file_id": media_file_id,
         "media_file_size": media_file_size,
         "media_file_name": media_file_name,
+        "is_forwarded": is_forwarded,
+        "forward_source_name": forward_source_name,
+        "forward_source_type": forward_source_type,
+        "forward_source_url": forward_source_url,
+        "forward_date": forward_date,
         "date": dt_local.date(),
         "year": dt_local.year,
         "month": dt_local.month,
@@ -171,6 +249,8 @@ def _load_delta_df(path: Path) -> pd.DataFrame:
         df["total_reactions"] = df["reactions"].apply(lambda r: sum(r.values()) if isinstance(r, dict) else 0)
     if "skip_discord" in df.columns:
         df["skip_discord"] = df["skip_discord"].fillna(False).astype(bool)
+    if "is_forwarded" in df.columns:
+        df["is_forwarded"] = df["is_forwarded"].fillna(False).astype(bool)
     return df
 
 
