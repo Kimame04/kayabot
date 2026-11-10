@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import threading
 import time
 
 # Add project root to sys.path
@@ -89,18 +90,30 @@ def main() -> None:
         if startup_reconciled:
             print(f"🧹 [LiveSync] Reconciled {len(startup_reconciled)} direct channel deletion(s) on startup.")
 
-    last_reconcile_time = time.time()
     RECONCILE_INTERVAL_SEC = 30  # check for direct channel deletions every 30 seconds
+    stop_event = threading.Event()
+
+    if config.channel_id:
+        def reconcile_worker() -> None:
+            while not stop_event.is_set():
+                if stop_event.wait(RECONCILE_INTERVAL_SEC):
+                    break
+                try:
+                    dispatcher.run_channel_reconciliation(notify=True)
+                except Exception as e:
+                    print(f"⚠️ [LiveSync Worker] Error during background deletion reconciliation: {e}")
+
+        reconcile_thread = threading.Thread(
+            target=reconcile_worker,
+            name="ChannelReconciliationWorker",
+            daemon=True,
+        )
+        reconcile_thread.start()
+        print(f"🔄 [LiveSync] Background deletion reconciliation worker started ({RECONCILE_INTERVAL_SEC}s interval).")
 
     consecutive_errors = 0
     while True:
         try:
-            # Periodic automated channel deletion reconciliation
-            now = time.time()
-            if config.channel_id and (now - last_reconcile_time) >= RECONCILE_INTERVAL_SEC:
-                last_reconcile_time = now
-                dispatcher.run_channel_reconciliation(notify=True)
-
             updates = client.get_updates(offset=offset, timeout=20)
             consecutive_errors = 0
 
@@ -135,6 +148,7 @@ def main() -> None:
 
         except KeyboardInterrupt:
             print("\n🛑 Shutting down Telegram bot...")
+            stop_event.set()
             break
         except TelegramAPIError as e:
             consecutive_errors += 1

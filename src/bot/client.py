@@ -6,10 +6,13 @@ Zero third-party dependencies; uses standard library urllib.request.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional, Union
 import urllib.error
 import urllib.parse
 import urllib.request
+
+logger = logging.getLogger("telegram_client")
 
 
 class TelegramAPIError(Exception):
@@ -144,12 +147,15 @@ class TelegramClient:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 content_len = resp.headers.get("Content-Length")
                 if content_len and int(content_len) > max_bytes:
+                    logger.warning(f"[TelegramClient] File {file_path} Content-Length ({content_len}) exceeds {max_bytes} bytes.")
                     return None
                 data = resp.read(max_bytes + 1)
                 if len(data) > max_bytes:
+                    logger.warning(f"[TelegramClient] Downloaded bytes for {file_path} exceeded {max_bytes} bytes.")
                     return None
                 return data
-        except Exception:
+        except Exception as e:
+            logger.warning(f"[TelegramClient] Failed downloading file {file_path}: {e}")
             return None
 
     def delete_message(self, chat_id: Union[int, str], message_id: int) -> bool:

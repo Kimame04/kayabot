@@ -207,7 +207,11 @@ def format_discord_payload(
         embed["fields"] = fields
 
     # If photo attachment provided, link it in the embed so it displays natively
-    if attachment_filename and row.get("media_type") in ("photo", None):
+    is_image_type = row.get("media_type") in ("photo", None)
+    is_image_ext = bool(attachment_filename and attachment_filename.lower().endswith(
+        (".jpg", ".jpeg", ".png", ".webp", ".gif")
+    ))
+    if attachment_filename and (is_image_type or is_image_ext):
         embed["image"] = {"url": f"attachment://{attachment_filename}"}
 
     return {
@@ -332,6 +336,9 @@ def edit_discord_relay(
     webhook_url: Optional[str],
     discord_message_id: str,
     row: Dict[str, Any],
+    file_bytes: Optional[bytes] = None,
+    filename: Optional[str] = None,
+    media_warning: Optional[str] = None,
     bot_name: str = "Kaya",
     author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
@@ -339,7 +346,8 @@ def edit_discord_relay(
 ) -> bool:
     """
     Edits an existing Discord webhook reflection message using HTTP PATCH.
-    Updates the embed content, tags, circadian border color, and footer with an '(edited)' indicator.
+    Supports multipart attachments, media warning banners, circadian borders,
+    and appends an '(edited)' indicator in the embed footer.
     Returns True if successfully edited, False otherwise.
     """
     if not webhook_url or not str(webhook_url).strip() or not discord_message_id:
@@ -353,21 +361,37 @@ def edit_discord_relay(
     base_url = url.split("?")[0].rstrip("/")
     patch_url = f"{base_url}/messages/{discord_message_id}"
 
-    payload = format_discord_payload(
-        row,
-        bot_name=bot_name,
-        author_name=author_name,
-        author_icon_url=author_icon_url,
-        is_edited=True,
-    )
-
-    data = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "TelegramJournalRelay/1.0",
-    }
-
     try:
+        if file_bytes and filename:
+            payload = format_discord_payload(
+                row,
+                bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
+                attachment_filename=filename,
+                media_warning=media_warning,
+                is_edited=True,
+            )
+            data, content_type = encode_multipart_form(payload, file_bytes, filename)
+            headers = {
+                "Content-Type": content_type,
+                "User-Agent": "TelegramJournalRelay/1.0",
+            }
+        else:
+            payload = format_discord_payload(
+                row,
+                bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
+                media_warning=media_warning,
+                is_edited=True,
+            )
+            data = json.dumps(payload).encode("utf-8")
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "TelegramJournalRelay/1.0",
+            }
+
         req = urllib.request.Request(
             patch_url,
             data=data,
@@ -383,6 +407,20 @@ def edit_discord_relay(
             return False
 
     except urllib.error.HTTPError as e:
+        if e.code == 413 and file_bytes:
+            logger.warning("[DiscordRelay] Payload too large (HTTP 413) on edit. Retrying without file attachment...")
+            return edit_discord_relay(
+                webhook_url,
+                discord_message_id,
+                row,
+                file_bytes=None,
+                filename=None,
+                media_warning="⚠️ Media exceeds Discord upload limit (view in Telegram channel)",
+                bot_name=bot_name,
+                author_name=author_name,
+                author_icon_url=author_icon_url,
+                timeout=timeout,
+            )
         logger.warning(f"[DiscordRelay] HTTP Error {e.code} editing message {discord_message_id}: {e.reason}")
         return False
     except urllib.error.URLError as e:

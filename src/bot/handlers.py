@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -135,6 +136,7 @@ class BotDispatcher:
         self.config = config
         self.df = df
         self.delta_path = delta_path
+        self._lock = threading.RLock()
 
     def handle_start(self, chat_id: int | str) -> None:
         """Welcome message and command directory."""
@@ -365,10 +367,11 @@ class BotDispatcher:
                 pass
 
         # 3. Purge from local live delta Parquet & register in tombstone store
-        delete_channel_post(target_id, delta_path=self.delta_path)
+        with self._lock:
+            delete_channel_post(target_id, delta_path=self.delta_path)
 
-        # 4. Remove from in-memory DataFrame
-        self.df = self.df[self.df["id"] != target_id].reset_index(drop=True)
+            # 4. Remove from in-memory DataFrame
+            self.df = self.df[self.df["id"] != target_id].reset_index(drop=True)
 
         print(f"🗑️ [Bot] Reflection #{target_id} deleted by user command.")
         preview_block = f"\n\n<i>\"{escape_html(sample_text)}\"</i>" if sample_text else ""
@@ -388,30 +391,31 @@ class BotDispatcher:
 
         from src.bot.live_sync import reconcile_channel_deletions
 
-        reconciled = reconcile_channel_deletions(
-            self.client,
-            self.config.channel_id,
-            delta_path=self.delta_path,
-            discord_webhook_url=self.config.discord_webhook_url,
-            limit=limit,
-        )
+        with self._lock:
+            reconciled = reconcile_channel_deletions(
+                self.client,
+                self.config.channel_id,
+                delta_path=self.delta_path,
+                discord_webhook_url=self.config.discord_webhook_url,
+                limit=limit,
+            )
 
-        if reconciled:
-            self.df = self.df[~self.df["id"].isin(reconciled)].reset_index(drop=True)
-            id_list_str = ", ".join(f"#{i}" for i in reconciled)
-            print(f"🗑️ [LiveSync] Detected direct channel deletion for {len(reconciled)} reflection(s): {id_list_str} — pruned from archive and Discord.")
-            if notify and self.config.chat_id:
-                try:
-                    self.client.send_message(
-                        self.config.chat_id,
-                        f"🗑️ <b>Channel Deletion Detected</b>\n"
-                        f"Detected {len(reconciled)} reflection(s) deleted directly in your channel: {id_list_str}\n"
-                        f"Automatically removed from journal archive and Discord mirror."
-                    )
-                except Exception:
-                    pass
+            if reconciled:
+                self.df = self.df[~self.df["id"].isin(reconciled)].reset_index(drop=True)
+                id_list_str = ", ".join(f"#{i}" for i in reconciled)
+                print(f"🗑️ [LiveSync] Detected direct channel deletion for {len(reconciled)} reflection(s): {id_list_str} — pruned from archive and Discord.")
+                if notify and self.config.chat_id:
+                    try:
+                        self.client.send_message(
+                            self.config.chat_id,
+                            f"🗑️ <b>Channel Deletion Detected</b>\n"
+                            f"Detected {len(reconciled)} reflection(s) deleted directly in your channel: {id_list_str}\n"
+                            f"Automatically removed from journal archive and Discord mirror."
+                        )
+                    except Exception:
+                        pass
 
-        return reconciled
+            return reconciled
 
     def handle_reconcile(self, chat_id: int | str) -> None:
         """Run active channel reconciliation probe to detect and purge deleted channel posts."""
@@ -487,22 +491,23 @@ class BotDispatcher:
             print(f"📢 [LiveSync] Auto-configured TELEGRAM_CHANNEL_ID=\"{post_chat_id}\" from channel: {chat.get('title')}")
 
         # Ingest and persist into live delta Parquet store
-        row, is_new = ingest_channel_post(
-            post,
-            delta_path=self.delta_path,
-            suppress_tags=getattr(self.config, "discord_suppress_tags", ["nowh"]),
-            strip_suppress_tags=getattr(self.config, "discord_strip_suppress_tags", True),
-        )
+        with self._lock:
+            row, is_new = ingest_channel_post(
+                post,
+                delta_path=self.delta_path,
+                suppress_tags=getattr(self.config, "discord_suppress_tags", ["nowh"]),
+                strip_suppress_tags=getattr(self.config, "discord_strip_suppress_tags", True),
+            )
 
-        # Update in-memory DataFrame so /otd and /stats immediately reflect this entry
-        new_row_df = pd.DataFrame([row])
-        new_row_df["timestamp"] = pd.to_datetime(new_row_df["timestamp"])
-        self.df = (
-            pd.concat([self.df, new_row_df], ignore_index=True)
-            .drop_duplicates(subset=["id"], keep="last")
-            .sort_values("timestamp")
-            .reset_index(drop=True)
-        )
+            # Update in-memory DataFrame so /otd and /stats immediately reflect this entry
+            new_row_df = pd.DataFrame([row])
+            new_row_df["timestamp"] = pd.to_datetime(new_row_df["timestamp"])
+            self.df = (
+                pd.concat([self.df, new_row_df], ignore_index=True)
+                .drop_duplicates(subset=["id"], keep="last")
+                .sort_values("timestamp")
+                .reset_index(drop=True)
+            )
 
         status_tag = "New entry" if is_new else "Edited entry"
         fwd_note = f" [Forwarded from {row['forward_source_name']}]" if row.get("is_forwarded") and row.get("forward_source_name") else ""
@@ -531,21 +536,58 @@ class BotDispatcher:
                         queue_pending_relay(row, action="DELETE", discord_message_id=str(discord_msg_id))
                     row["discord_message_id"] = None
                     update_discord_message_id(row["id"], None, delta_path=self.delta_path)
-                    if "discord_message_id" in self.df.columns:
-                        self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = None
+                    with self._lock:
+                        if "discord_message_id" in self.df.columns:
+                            self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = None
                     print(f"🗑️ [DiscordRelay] Reflection #{row['id']} edited to add suppression tag — deleted from Discord")
                 else:
                     print(f"⏭️ [DiscordRelay] Reflection #{row['id']} suppressed via tag (Discord relay skipped)")
                 return row
 
+            # Resolve media attachment and download prior to edit / dispatch
+            file_bytes: Optional[bytes] = None
+            filename: Optional[str] = None
+            media_warning: Optional[str] = None
+
+            media_file_id = row.get("media_file_id")
+            media_size = row.get("media_file_size") or 0
+            max_discord_size = 10 * 1024 * 1024  # 10 MB
+
+            if media_file_id:
+                media_type_label = (row.get("media_type") or "Media").title()
+                if media_size > max_discord_size:
+                    media_warning = f"⚠️ {media_type_label} ({media_size / (1024 * 1024):.1f} MB exceeds Discord limit — view in Telegram channel)"
+                else:
+                    try:
+                        file_info = self.client.get_file(media_file_id)
+                        file_path = file_info.get("file_path") if isinstance(file_info, dict) else None
+                        if file_path:
+                            file_bytes = self.client.download_file(file_path, max_bytes=max_discord_size)
+                            filename = row.get("media_file_name") or "reflection.jpg"
+                            if not file_bytes:
+                                media_warning = f"⚠️ {media_type_label} download failed or exceeded size limit (view in Telegram channel)"
+                        else:
+                            media_warning = f"⚠️ {media_type_label} file path unavailable from Telegram (view in Telegram channel)"
+                    except Exception as e:
+                        print(f"⚠️ [DiscordRelay] Failed to fetch media from Telegram: {e}")
+                        media_warning = f"⚠️ {media_type_label} could not be downloaded (view in Telegram channel)"
+
             # Case 2: Post is an EDITED entry with an existing discord_message_id
             if not is_new and discord_msg_id:
+                edit_kwargs: Dict[str, Any] = {
+                    "author_name": self.config.discord_author_name,
+                    "author_icon_url": self.config.discord_author_icon_url,
+                }
+                if file_bytes is not None or filename is not None or media_warning is not None:
+                    edit_kwargs["file_bytes"] = file_bytes
+                    edit_kwargs["filename"] = filename
+                    edit_kwargs["media_warning"] = media_warning
+
                 edit_success = edit_discord_relay(
                     self.config.discord_webhook_url,
                     str(discord_msg_id),
                     row,
-                    author_name=self.config.discord_author_name,
-                    author_icon_url=self.config.discord_author_icon_url,
+                    **edit_kwargs,
                 )
                 if edit_success:
                     print(f"✏️ [DiscordRelay] Reflection #{row['id']} edit relayed to Discord (message {discord_msg_id})")
@@ -562,30 +604,6 @@ class BotDispatcher:
                 author_icon_url=self.config.discord_author_icon_url,
             )
 
-            file_bytes: Optional[bytes] = None
-            filename: Optional[str] = None
-            media_warning: Optional[str] = None
-
-            # Handle media downloading with 10MB limit guardrails
-            media_file_id = row.get("media_file_id")
-            media_size = row.get("media_file_size") or 0
-            max_discord_size = 10 * 1024 * 1024  # 10 MB
-
-            if media_file_id:
-                if media_size > max_discord_size:
-                    media_type_label = (row.get("media_type") or "Media").title()
-                    media_warning = f"⚠️ {media_type_label} ({media_size / (1024 * 1024):.1f} MB exceeds Discord limit — view in Telegram channel)"
-                else:
-                    try:
-                        file_info = self.client.get_file(media_file_id)
-                        file_path = file_info.get("file_path")
-                        if file_path:
-                            file_bytes = self.client.download_file(file_path, max_bytes=max_discord_size)
-                            filename = row.get("media_file_name") or "reflection.jpg"
-                    except Exception as e:
-                        print(f"⚠️ [DiscordRelay] Failed to fetch media from Telegram: {e}")
-                        media_warning = "⚠️ Media could not be downloaded (view in Telegram channel)"
-
             relay_result = send_discord_relay(
                 self.config.discord_webhook_url,
                 row,
@@ -599,8 +617,9 @@ class BotDispatcher:
                 if relay_result != "true":
                     row["discord_message_id"] = str(relay_result)
                     update_discord_message_id(row["id"], str(relay_result), delta_path=self.delta_path)
-                    if "discord_message_id" in self.df.columns:
-                        self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = str(relay_result)
+                    with self._lock:
+                        if "discord_message_id" in self.df.columns:
+                            self.df.loc[self.df["id"] == row["id"], "discord_message_id"] = str(relay_result)
                 media_str = f" with {row.get('media_type')}" if file_bytes else ""
                 fwd_str = f" (forwarded from {row.get('forward_source_name')})" if row.get("is_forwarded") and row.get("forward_source_name") else ""
                 unsuppress_str = " (un-suppressed & relayed)" if not is_new else ""
