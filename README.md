@@ -2,7 +2,7 @@
 
 > A personal reflection familiar for Telegram channels. Streams live thoughts into Discord with circadian aesthetics, backed by multi-year flashbacks and deep behavioral analytics.
 
-[![Tests](https://img.shields.io/badge/tests-81%20passed-brightgreen.svg)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-83%20passed-brightgreen.svg)](#-testing)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](environment.yml)
 [![Zero Dependency Bot API](https://img.shields.io/badge/bot--api-zero--dependency-orange.svg)](src/bot/client.py)
 [![Privacy First](https://img.shields.io/badge/privacy-100%25%20offline-success.svg)](#-privacy--data-isolation)
@@ -95,7 +95,7 @@ python -m scripts.run_otd             # Terminal flashback feed (--date 09-15 --
 ```bash
 python -m unittest discover tests
 ```
-* **81/81 unit tests passing** with 100% mocked network calls.
+* **83/83 unit tests passing** with 100% mocked network calls.
 * Fully self-contained; tests run against synthetic benchmarks (`ChatExport_sample/`) without needing private data.
 
 ---
@@ -104,4 +104,10 @@ python -m unittest discover tests
 
 * **Strictly Local:** Personal exports (`ChatExport_*`), `.cache/`, and `.env` are gitignored.
 * **Access Control:** KayaBot rejects commands from any unverified user ID.
-* **Public Demos:** Online [documentation showcase](https://kimame04.github.io/telegram-journal-analytics/) is generated exclusively from synthetic data.
+* **Public Demos:** Online [documentation showcase](https://kimame04.github.io/kayabot/) is generated exclusively from synthetic data.
+
+---
+
+## 🤖 AI Disclosure
+
+I built and maintained this with agentic AI assistance : )

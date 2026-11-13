@@ -1,5 +1,5 @@
 """
-Telegram Bot integration package for telegram-journal-analytics.
+Telegram Bot integration package for KayaBot (kayabot).
 Provides decoupled bot API client, message formatters, and interactive handlers.
 """
 

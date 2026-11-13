@@ -1,6 +1,6 @@
 # System Architecture & Technical Specifications
 
-This document outlines the internal architecture, data schemas, modular analytical engines, and system topology of `telegram-journal-analytics`.
+This document outlines the internal architecture, data schemas, modular analytical engines, and system topology of `kayabot` (formerly `telegram-journal-analytics`).
 
 For end-user setup and CLI usage instructions, see [README.md](README.md).
 
@@ -9,7 +9,7 @@ For end-user setup and CLI usage instructions, see [README.md](README.md).
 ## 1. System Topology & Project Tree
 
 ```
-telegram-journal-analytics/
+kayabot/
 ├── src/
 │   ├── parser.py          # Universal Telegram HTML parser & Parquet cache engine
 │   ├── bot/               # Telegram Companion Bot & Live Channel Ingestion

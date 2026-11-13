@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Interactive Telegram Companion Bot Daemon for telegram-journal-analytics.
+Interactive Telegram Companion Bot Daemon for KayaBot (kayabot).
 Listens for user commands (/otd, /random, /stats, /tag) and callback queries.
 
 Usage:

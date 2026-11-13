@@ -164,7 +164,7 @@ python -m scripts.run_otd --random
 
 ### 5. Run Automated Tests
 ```bash
-# 100% self-contained; all 81 tests pass without private data
+# 100% self-contained; all 83 tests pass without private data
 python -m unittest discover tests
 ```
 
@@ -176,3 +176,9 @@ python -m unittest discover tests
 - **"Ask Past You":** Semantic search and conversational Q&A (RAG) over your journal history to query what you thought or felt about specific topics in the past.
 - **Thought Chains & Self-Replies:** Tree visualization and latency analysis tracking how monologue threads and self-replies develop across weeks or months.
 - **Habit & Consistency Calendar Grid:** Full-year GitHub-style daily commit matrix showing journaling density and streak continuity.
+
+---
+
+## AI Disclosure
+
+I built and maintained this with agentic AI assistance : )
