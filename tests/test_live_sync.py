@@ -810,6 +810,69 @@ class TestLiveSync(unittest.TestCase):
                 client.send_message.assert_called_once()
                 self.assertIn("Channel Deletion Detected", client.send_message.call_args[0][1])
 
+    def test_channel_post_media_edit_skips_media_reupload(self):
+        """Verify editing a post with media sends JSON-only PATCH and does not re-download/re-upload file."""
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            delta_path = Path(tmpdir) / "live_messages.parquet"
+            client = MagicMock()
+            client.get_file.return_value = {"file_path": "videos/clip.mp4"}
+            client.download_file.return_value = b"video_bytes_content"
+
+            config = BotConfig(
+                bot_token="fake_token",
+                channel_id="-100123",
+                discord_webhook_url="https://discord.com/api/webhooks/123/abc",
+            )
+            dispatcher = BotDispatcher(client, config, pd.DataFrame(), delta_path=delta_path)
+
+            with patch("src.bot.discord_relay.send_discord_relay") as mock_send, \
+                 patch("src.bot.discord_relay.edit_discord_relay") as mock_edit:
+
+                mock_send.return_value = "discord_snowflake_999"
+                mock_edit.return_value = True
+
+                # Step 1: Initial post with video -> downloads and sends media
+                post_init = {
+                    "message_id": 888,
+                    "date": 1729684800,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "caption": "Initial video caption",
+                    "video": {"file_id": "vid_file_1", "file_size": 2048, "file_name": "reflection.mp4"},
+                }
+                res1 = dispatcher.handle_channel_post(post_init)
+                self.assertEqual(res1["discord_message_id"], "discord_snowflake_999")
+                client.download_file.assert_called_once()
+                mock_send.assert_called_once()
+                mock_edit.assert_not_called()
+
+                # Reset client mock to check subsequent edit
+                client.download_file.reset_mock()
+                client.get_file.reset_mock()
+
+                # Step 2: Edit caption of same video post
+                post_edited = {
+                    "message_id": 888,
+                    "date": 1729684800,
+                    "edit_date": 1729685000,
+                    "chat": {"id": -100123, "type": "channel"},
+                    "caption": "Updated caption without typo",
+                    "video": {"file_id": "vid_file_1", "file_size": 2048, "file_name": "reflection.mp4"},
+                }
+                res2 = dispatcher.handle_channel_post(post_edited)
+
+                # download_file must NOT be called on edit
+                client.download_file.assert_not_called()
+                client.get_file.assert_not_called()
+
+                # edit_discord_relay must be called WITHOUT file_bytes or filename
+                mock_edit.assert_called_once()
+                call_kwargs = mock_edit.call_args[1]
+                self.assertNotIn("file_bytes", call_kwargs)
+                self.assertNotIn("filename", call_kwargs)
+
 
 if __name__ == "__main__":
     unittest.main()

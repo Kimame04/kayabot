@@ -557,7 +557,8 @@ class BotDispatcher:
                 media_type_label = (row.get("media_type") or "Media").title()
                 if media_size > max_discord_size:
                     media_warning = f"⚠️ {media_type_label} ({media_size / (1024 * 1024):.1f} MB exceeds Discord limit — view in Telegram channel)"
-                else:
+                elif is_new or not discord_msg_id:
+                    # Only download media binary for new posts or un-relayed posts
                     try:
                         file_info = self.client.get_file(media_file_id)
                         file_path = file_info.get("file_path") if isinstance(file_info, dict) else None
@@ -578,9 +579,10 @@ class BotDispatcher:
                     "author_name": self.config.discord_author_name,
                     "author_icon_url": self.config.discord_author_icon_url,
                 }
-                if file_bytes is not None or filename is not None or media_warning is not None:
-                    edit_kwargs["file_bytes"] = file_bytes
-                    edit_kwargs["filename"] = filename
+                # Do NOT re-upload file_bytes on edit: Discord appends new attachments
+                # on PATCH, causing duplicate video/document copies in the channel.
+                # Discord automatically retains the existing media attachment.
+                if media_warning is not None:
                     edit_kwargs["media_warning"] = media_warning
 
                 edit_success = edit_discord_relay(
@@ -594,6 +596,16 @@ class BotDispatcher:
                     return row
                 else:
                     print(f"⚠️ [DiscordRelay] Edit failed for reflection #{row['id']} on message {discord_msg_id}; re-dispatching as new message")
+                    # If edit failed (e.g. message deleted on Discord), download media now to re-dispatch as new message
+                    if file_bytes is None and media_file_id and media_size <= max_discord_size:
+                        try:
+                            file_info = self.client.get_file(media_file_id)
+                            file_path = file_info.get("file_path") if isinstance(file_info, dict) else None
+                            if file_path:
+                                file_bytes = self.client.download_file(file_path, max_bytes=max_discord_size)
+                                filename = row.get("media_file_name") or "reflection.jpg"
+                        except Exception as e:
+                            print(f"⚠️ [DiscordRelay] Failed to fetch media for re-dispatch: {e}")
                     # Fall through to Case 3 to recover and re-dispatch
 
             # Case 3: Post is a NEW entry (or previously un-relayed / re-dispatched edited entry)

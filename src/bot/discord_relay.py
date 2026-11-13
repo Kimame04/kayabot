@@ -207,13 +207,16 @@ def format_discord_payload(
     if fields:
         embed["fields"] = fields
 
-    # If photo attachment provided, link it in the embed so it displays natively
+    # If photo attachment provided (or existing on edit), link it in the embed so it displays natively
     is_image_type = row.get("media_type") in ("photo", None)
     is_image_ext = bool(attachment_filename and attachment_filename.lower().endswith(
         (".jpg", ".jpeg", ".png", ".webp", ".gif")
     ))
     if attachment_filename and (is_image_type or is_image_ext):
         embed["image"] = {"url": f"attachment://{attachment_filename}"}
+    elif row.get("has_photo") or row.get("media_type") == "photo":
+        photo_filename = row.get("media_file_name") or "reflection.jpg"
+        embed["image"] = {"url": f"attachment://{photo_filename}"}
 
     return {
         "username": bot_name,

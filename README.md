@@ -2,7 +2,7 @@
 
 > A personal reflection familiar for Telegram channels. Streams live thoughts into Discord with circadian aesthetics, backed by multi-year flashbacks and deep behavioral analytics.
 
-[![Tests](https://img.shields.io/badge/tests-83%20passed-brightgreen.svg)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen.svg)](#-testing)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](environment.yml)
 [![Zero Dependency Bot API](https://img.shields.io/badge/bot--api-zero--dependency-orange.svg)](src/bot/client.py)
 [![Privacy First](https://img.shields.io/badge/privacy-100%25%20offline-success.svg)](#-privacy--data-isolation)
