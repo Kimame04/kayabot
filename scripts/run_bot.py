@@ -80,7 +80,13 @@ def main() -> None:
     offset = None
     if config.has_discord_relay:
         from src.bot.discord_relay import flush_pending_relays
-        flushed = flush_pending_relays(config.discord_webhook_url)
+        flushed = flush_pending_relays(
+            config.discord_webhook_url,
+            author_name=config.discord_author_name,
+            author_icon_url=config.discord_author_icon_url,
+            client=client,
+            delta_path=dispatcher.delta_path,
+        )
         if flushed:
             print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord on startup.")
 

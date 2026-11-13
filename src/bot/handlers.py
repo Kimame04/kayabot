@@ -602,6 +602,8 @@ class BotDispatcher:
                 self.config.discord_webhook_url,
                 author_name=self.config.discord_author_name,
                 author_icon_url=self.config.discord_author_icon_url,
+                client=self.client,
+                delta_path=self.delta_path,
             )
 
             relay_result = send_discord_relay(

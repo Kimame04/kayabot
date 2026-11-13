@@ -8,10 +8,11 @@ and customizable author branding.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import io
 import json
 import logging
+import math
 import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -505,12 +506,20 @@ def queue_pending_relay(
             entries = []
 
     serializable = dict(row)
-    if isinstance(serializable.get("timestamp"), datetime):
-        serializable["timestamp"] = serializable["timestamp"].isoformat()
-    if isinstance(serializable.get("forward_date"), datetime):
-        serializable["forward_date"] = serializable["forward_date"].isoformat()
-    if isinstance(serializable.get("edit_date"), datetime):
-        serializable["edit_date"] = serializable["edit_date"].isoformat()
+    for k, v in list(serializable.items()):
+        if str(v) == "NaT":
+            serializable[k] = None
+        elif isinstance(v, (datetime, date)):
+            serializable[k] = v.isoformat()
+        elif hasattr(v, "tolist"):
+            serializable[k] = v.tolist()
+        elif hasattr(v, "item"):
+            try:
+                serializable[k] = v.item()
+            except Exception:
+                pass
+        elif isinstance(v, float) and math.isnan(v):
+            serializable[k] = None
 
     entry = {
         "action": action,
@@ -526,7 +535,7 @@ def queue_pending_relay(
 
     try:
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2)
+            json.dump(entries, f, indent=2, default=str)
     except Exception as e:
         logger.warning(f"[DiscordRelay] Failed to write to pending relay queue: {e}")
 
@@ -536,11 +545,15 @@ def flush_pending_relays(
     bot_name: str = "Kaya",
     author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
-    timeout: int = 5,
+    client: Optional[Any] = None,
+    delta_path: Optional[Path] = None,
+    timeout: int = 15,
 ) -> int:
     """
     Attempt to flush any previously queued failed reflections to Discord.
     Supports CREATE, UPDATE, and DELETE actions.
+    If a Telegram client is provided, automatically fetches and re-attaches
+    media files (e.g. photos) if they failed download previously.
     Returns the number of successfully relayed entries.
     """
     if not webhook_url:
@@ -570,6 +583,11 @@ def flush_pending_relays(
                 item["timestamp"] = datetime.fromisoformat(item["timestamp"])
             except Exception:
                 pass
+        if isinstance(item.get("date"), str):
+            try:
+                item["date"] = date.fromisoformat(item["date"])
+            except Exception:
+                pass
         if isinstance(item.get("forward_date"), str):
             try:
                 item["forward_date"] = datetime.fromisoformat(item["forward_date"])
@@ -581,18 +599,54 @@ def flush_pending_relays(
             except Exception:
                 pass
 
+        # Attempt to retrieve media attachment if TelegramClient is provided
+        file_bytes: Optional[bytes] = None
+        filename: Optional[str] = None
+        media_warning: Optional[str] = entry.get("media_warning") or item.get("media_warning")
+
+        media_file_id = item.get("media_file_id")
+        media_size = item.get("media_file_size") or 0
+        max_discord_size = 10 * 1024 * 1024
+
+        if client and media_file_id:
+            media_type_label = (item.get("media_type") or "Media").title()
+            if media_size > max_discord_size:
+                media_warning = f"⚠️ {media_type_label} ({media_size / (1024 * 1024):.1f} MB exceeds Discord limit — view in Telegram channel)"
+            else:
+                try:
+                    file_info = client.get_file(media_file_id)
+                    file_path = file_info.get("file_path") if isinstance(file_info, dict) else None
+                    if file_path:
+                        file_bytes = client.download_file(file_path, max_bytes=max_discord_size)
+                        filename = item.get("media_file_name") or "reflection.jpg"
+                        if not file_bytes:
+                            media_warning = f"⚠️ {media_type_label} download failed or exceeded size limit (view in Telegram channel)"
+                    else:
+                        media_warning = f"⚠️ {media_type_label} file path unavailable from Telegram (view in Telegram channel)"
+                except Exception as e:
+                    logger.warning(f"[DiscordRelay] Failed to fetch media from Telegram during flush: {e}")
+                    media_warning = f"⚠️ {media_type_label} could not be downloaded (view in Telegram channel)"
+
         success = False
         target_msg_id = entry.get("discord_message_id") or item.get("discord_message_id")
 
         if action == "UPDATE" and target_msg_id:
+            edit_kwargs: Dict[str, Any] = {
+                "bot_name": bot_name,
+                "author_name": author_name,
+                "author_icon_url": author_icon_url,
+                "timeout": timeout,
+            }
+            if file_bytes is not None or filename is not None or media_warning is not None:
+                edit_kwargs["file_bytes"] = file_bytes
+                edit_kwargs["filename"] = filename
+                edit_kwargs["media_warning"] = media_warning
+
             success = edit_discord_relay(
                 webhook_url,
                 target_msg_id,
                 item,
-                bot_name=bot_name,
-                author_name=author_name,
-                author_icon_url=author_icon_url,
-                timeout=timeout,
+                **edit_kwargs,
             )
         elif action == "DELETE" and target_msg_id:
             success = delete_discord_relay(
@@ -601,14 +655,24 @@ def flush_pending_relays(
                 timeout=timeout,
             )
         else:
-            success = bool(send_discord_relay(
+            relay_res = send_discord_relay(
                 webhook_url,
                 item,
+                file_bytes=file_bytes,
+                filename=filename,
+                media_warning=media_warning,
                 bot_name=bot_name,
                 author_name=author_name,
                 author_icon_url=author_icon_url,
                 timeout=timeout,
-            ))
+            )
+            success = bool(relay_res)
+            if success and relay_res != "true" and item.get("id"):
+                try:
+                    from src.bot.live_sync import update_discord_message_id
+                    update_discord_message_id(item["id"], str(relay_res), delta_path=delta_path)
+                except Exception:
+                    pass
 
         if success:
             flushed_count += 1
@@ -618,7 +682,7 @@ def flush_pending_relays(
     if remaining:
         try:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(remaining, f, indent=2)
+                json.dump(remaining, f, indent=2, default=str)
         except Exception:
             pass
     else:

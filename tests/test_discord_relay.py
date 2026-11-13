@@ -222,30 +222,45 @@ class TestDiscordRelay(unittest.TestCase):
             fake_queue = Path(tmpdir) / "pending.json"
             mock_queue_path.return_value = fake_queue
 
-            # 1. Queue CREATE action
-            row1 = {"id": 201, "text": "Offline entry", "timestamp": datetime(2026, 11, 1, 12, 0, 0)}
+            from datetime import date
+            # 1. Queue CREATE action with date object and media_file_id
+            row1 = {
+                "id": 201,
+                "text": "Offline entry",
+                "timestamp": datetime(2026, 11, 1, 12, 0, 0),
+                "date": date(2026, 11, 1),
+                "media_type": "photo",
+                "media_file_id": "file_abc",
+                "media_file_size": 1000,
+            }
             queue_pending_relay(row1, action="CREATE")
 
             # 2. Queue UPDATE action
-            row2 = {"id": 202, "text": "Edited entry", "timestamp": datetime(2026, 11, 1, 13, 0, 0)}
+            row2 = {"id": 202, "text": "Edited entry", "timestamp": datetime(2026, 11, 1, 13, 0, 0), "date": date(2026, 11, 1)}
             queue_pending_relay(row2, action="UPDATE", discord_message_id="msg_edit_123")
 
             # 3. Queue DELETE action
-            row3 = {"id": 203, "text": "Deleted entry", "timestamp": datetime(2026, 11, 1, 14, 0, 0)}
+            row3 = {"id": 203, "text": "Deleted entry", "timestamp": datetime(2026, 11, 1, 14, 0, 0), "date": date(2026, 11, 1)}
             queue_pending_relay(row3, action="DELETE", discord_message_id="msg_del_456")
 
             self.assertTrue(fake_queue.exists())
 
-            mock_send.return_value = True
+            mock_client = MagicMock()
+            mock_client.get_file.return_value = {"file_path": "photos/test.jpg"}
+            mock_client.download_file.return_value = b"photo_bytes"
+
+            mock_send.return_value = "discord_msg_101"
             mock_edit.return_value = True
             mock_delete.return_value = True
 
-            flushed = flush_pending_relays("https://discord.com/api/webhooks/1/2")
+            flushed = flush_pending_relays("https://discord.com/api/webhooks/1/2", client=mock_client)
             self.assertEqual(flushed, 3)
             self.assertFalse(fake_queue.exists())
             mock_send.assert_called_once()
             mock_edit.assert_called_once()
             mock_delete.assert_called_once()
+            mock_client.get_file.assert_called_once_with("file_abc")
+            mock_client.download_file.assert_called_once()
 
     def test_encode_multipart_form(self):
         from src.bot.discord_relay import encode_multipart_form
