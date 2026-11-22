@@ -92,9 +92,9 @@ def main() -> None:
         "--format",
         "-f",
         type=str,
-        choices=["all", "json", "md"],
+        choices=["all", "json", "md", "html"],
         default="all",
-        help="Export format: 'all' (default), 'json', or 'md'.",
+        help="Export format: 'all' (default: json, md, html), 'json', 'md', or 'html'.",
     )
     parser.add_argument(
         "--out-dir",
@@ -116,6 +116,11 @@ def main() -> None:
         help="Bypass Parquet cache and force re-parsing HTML exports.",
     )
     parser.add_argument(
+        "--no-live",
+        action="store_true",
+        help="Bypass live delta layer and extract strictly from static cold storage.",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -132,7 +137,7 @@ def main() -> None:
 
     # 2. Ingest export (historical + live delta)
     try:
-        df = load_unified_journal(export_dir, verbose=not args.quiet)
+        df = load_unified_journal(export_dir, verbose=not args.quiet, include_live=not args.no_live)
     except Exception as e:
         print(f"❌ Error loading export data: {e}", file=sys.stderr)
         sys.exit(1)
@@ -166,7 +171,7 @@ def main() -> None:
         sys.exit(1)
 
     # 5. Export to disk
-    formats = ["json", "md"] if args.format == "all" else [args.format]
+    formats = ["json", "md", "html"] if args.format == "all" else [args.format]
     out_dir_path = Path(args.out_dir)
     written_files = export_digest(digest, out_dir=out_dir_path, formats=formats)
 

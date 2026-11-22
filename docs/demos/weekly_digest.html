@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2024-25 | My Journal</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>">
+    <style>
+        :root {
+            --bg-notion: #191919;
+            --bg-hover: #222222;
+            --bg-sidebar: #202020;
+            --text-notion: #d4d4d4;
+            --text-header: #ffffff;
+            --text-muted: #787774;
+            --border-notion: rgba(255, 255, 255, 0.09);
+            --notion-pill-bg: rgba(227, 226, 224, 0.1);
+            --notion-pill-text: #9b9a97;
+            --notion-blue-bg: rgba(0, 120, 212, 0.2);
+            --notion-blue-text: #58a6ff;
+            --font-notion: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+            --font-mono: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-notion);
+            background-color: var(--bg-notion);
+            color: var(--text-notion);
+            line-height: 1.6;
+            padding: 32px 20px 80px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Top Bar */
+        .top-toolbar {
+            max-width: 860px;
+            margin: 0 auto 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-notion);
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-header);
+        }
+
+        .view-switcher {
+            display: flex;
+            gap: 6px;
+        }
+
+        .view-btn {
+            background: transparent;
+            border: 1px solid var(--border-notion);
+            color: var(--text-muted);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .view-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-header);
+        }
+
+        .view-btn.active {
+            background: var(--notion-pill-bg);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-header);
+        }
+
+        /* Notion Document Flow Container */
+        .notion-page {
+            max-width: 860px;
+            margin: 0 auto;
+        }
+
+        /* Page Icon & Title */
+        .notion-page-icon {
+            font-size: 4.5rem;
+            line-height: 1;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
+        .notion-page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-header);
+            letter-spacing: -0.025em;
+            margin-bottom: 18px;
+        }
+
+        /* Notion Properties Table */
+        .notion-properties {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 0 20px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-notion);
+        }
+
+        .property-row {
+            display: flex;
+            align-items: center;
+            font-size: 0.88rem;
+        }
+
+        .property-label {
+            width: 130px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .property-value {
+            color: var(--text-notion);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .notion-tag-pill {
+            background: var(--notion-pill-bg);
+            color: var(--notion-pill-text);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+
+        /* Headings */
+        h2.notion-h2 {
+            font-size: 1.45rem;
+            font-weight: 600;
+            color: var(--text-header);
+            margin: 32px 0 16px;
+            letter-spacing: -0.015em;
+        }
+
+        /* 50/50 Dual Column Media Layout (for days with photos) */
+        .notion-50-50-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+
+        .notion-col-text {
+            min-width: 0;
+        }
+
+        .notion-col-media {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Photo Card */
+        .notion-image-card {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-notion);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .notion-image-placeholder {
+            aspect-ratio: 4 / 3;
+            background: #242528;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 8px;
+        }
+
+        .placeholder-icon {
+            font-size: 2.2rem;
+        }
+
+        .placeholder-name {
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+            color: var(--notion-blue-text);
+        }
+
+        /* Day Bullet Lists */
+        .day-block {
+            margin-bottom: 20px;
+        }
+
+        .day-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-header);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        ul.notion-bullets {
+            list-style: disc;
+            padding-left: 24px;
+            margin-bottom: 8px;
+        }
+
+        ul.notion-bullets li {
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+            color: var(--text-notion);
+        }
+
+        /* Mention tag pills */
+        .notion-mention {
+            background: var(--notion-blue-bg);
+            color: var(--notion-blue-text);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        /* Retrospective Section */
+        .retro-body {
+            font-size: 0.95rem;
+            color: var(--text-notion);
+            margin-bottom: 16px;
+        }
+
+        ol.notion-numbered-list {
+            list-style: decimal;
+            padding-left: 24px;
+            margin-bottom: 20px;
+        }
+
+        ol.notion-numbered-list li {
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+            color: var(--text-notion);
+        }
+
+        /* Raw View Panels */
+        .raw-view-panel {
+            display: none;
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-notion);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .raw-view-panel.active {
+            display: block;
+        }
+
+        pre.code-block {
+            font-family: var(--font-mono);
+            font-size: 0.86rem;
+            color: #d1d5db;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-x: auto;
+            max-height: 800px;
+        }
+
+        /* Responsive collapse for mobile */
+        @media (max-width: 720px) {
+            .notion-50-50-row {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-toolbar">
+    <div class="breadcrumb">
+        <a href="../index.html">KayaBot 🥪</a>
+        <span>/</span>
+        <span>My Journal</span>
+        <span>/</span>
+        <span style="color: var(--text-header); font-weight: 600;">2024-25</span>
+    </div>
+    <div class="view-switcher">
+        <button class="view-btn active" onclick="switchView('page', this)">📄 Notion Page</button>
+        <button class="view-btn" onclick="switchView('markdown', this)">📝 Markdown</button>
+        <button class="view-btn" onclick="switchView('json', this)">⚡ JSON</button>
+    </div>
+</div>
+
+<main id="view-page" class="notion-page">
+
+    <!-- Notion Page Icon & Title -->
+    <div class="notion-page-icon">🧩</div>
+    <h1 class="notion-page-title">2024-25</h1>
+
+    <!-- Notion Page Properties -->
+    <div class="notion-properties">
+        <div class="property-row">
+            <div class="property-label">🏷️ Tags</div>
+            <div class="property-value">
+                <span class="notion-tag-pill">Recap</span>
+            </div>
+        </div>
+        <div class="property-row">
+            <div class="property-label">📅 Date</div>
+            <div class="property-value">Jun 16, 2024 → Jun 22, 2024</div>
+        </div>
+    </div>
+
+    <!-- Section 1: Weekly Summary of Events -->
+    <h2 class="notion-h2">A quick summary of events that happened the last week</h2>
+
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Sunday</div>
+            <ul class="notion-bullets">
+                <li><span class="notion-mention">🏷️ fitness</span> Quick 30 minute mobility and core routine before dinner.</li>
+                <li><span class="notion-mention">🏷️ coffee</span> Exploring local coffee roasters this afternoon.</li>
+            </ul>
+        </div>
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Monday</div>
+            <ul class="notion-bullets">
+                <li style="color: var(--text-muted); font-style: italic;">(No entries logged)</li>
+            </ul>
+        </div>
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Tuesday</div>
+            <ul class="notion-bullets">
+                <li><span class="notion-mention">🏷️ elden ring</span> Defeated the boss after 12 attempts! Hands still shaking.</li>
+            </ul>
+        </div>
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Wednesday</div>
+            <ul class="notion-bullets">
+                <li style="color: var(--text-muted); font-style: italic;">(No entries logged)</li>
+            </ul>
+        </div>
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Thursday</div>
+            <ul class="notion-bullets">
+                <li><span class="notion-mention">🏷️ elden ring</span> Exploring the underground river well area, the atmosphere is incredible.</li>
+            </ul>
+        </div>
+        <!-- Standard Layout for Days Without Photos -->
+        <div class="day-block">
+            <div class="day-title">- Friday</div>
+            <ul class="notion-bullets">
+                <li>Quiet Sunday reflections. Prepped everything for the week ahead.</li>
+            </ul>
+        </div>
+        <!-- 50/50 Dual Column Media Layout for Days with Photos -->
+        <div class="notion-50-50-row">
+            <div class="notion-col-text">
+                <div class="day-title">- Saturday</div>
+                <ul class="notion-bullets">
+                    <li><span class="notion-mention">🏷️ coding</span> Writing automated unit tests to keep code coverage high.</li>
+                    <li>Had a productive day clearing backlogged tasks and emails.</li>
+                </ul>
+            </div>
+            <div class="notion-col-media">
+                <div class="notion-image-card">
+                    <div class="notion-image-placeholder">
+                        <span class="placeholder-icon">📷</span>
+                        <span class="placeholder-name">reflection.jpg</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- Section 2: Weekly Retrospectives -->
+    <h2 class="notion-h2">Biggest win</h2>
+    <div class="retro-body">
+        One sentence describing the greatest accomplishment of the week
+    </div>
+
+    <h2 class="notion-h2">Biggest challenge</h2>
+    <div class="retro-body">
+        One sentence describing your greatest concern or obstacle faced this week
+    </div>
+
+    <h2 class="notion-h2">Looking back on this week’s goals</h2>
+
+    <h2 class="notion-h2">Outcomes for next week</h2>
+    <ol class="notion-numbered-list">
+        <li>Health</li>
+        <li>Work</li>
+        <li>Social</li>
+        <li>Educational</li>
+        <li>Leisure</li>
+    </ol>
+
+</main>
+
+<!-- Tab 2: Raw Markdown -->
+<section id="view-markdown" class="notion-page raw-view-panel">
+    <pre class="code-block"><code># 🧩 2024-25
+
+*Period: 2024-06-16 (Sunday) to 2024-06-22 (Saturday) • 7 entries • 68 words • 5/7 active days*
+*Active Topics: `[elden ring]` (2), `[fitness]` (1), `[coffee]` (1), `[coding]` (1)*
+
+## A quick summary of events that happened the last week
+
+- **Sunday** (2024-06-16)
+  - [fitness] Quick 30 minute mobility and core routine before dinner.
+  - [coffee] Exploring local coffee roasters this afternoon.
+
+- **Monday** (2024-06-17)
+  - *(No entries logged)*
+
+- **Tuesday** (2024-06-18)
+  - [elden ring] Defeated the boss after 12 attempts! Hands still shaking.
+
+- **Wednesday** (2024-06-19)
+  - *(No entries logged)*
+
+- **Thursday** (2024-06-20)
+  - [elden ring] Exploring the underground river well area, the atmosphere is incredible.
+
+- **Friday** (2024-06-21)
+  - Quiet Sunday reflections. Prepped everything for the week ahead.
+
+- **Saturday** (2024-06-22)
+  - [coding] Writing automated unit tests to keep code coverage high. 📷 *[Photo]*
+  - Had a productive day clearing backlogged tasks and emails.
+
+## Biggest win
+
+One sentence describing the greatest accomplishment of the week
+
+## Biggest challenge
+
+One sentence describing your greatest concern or obstacle faced this week
+
+## Looking back on this week’s goals
+
+## Outcomes for next week
+
+1. Health
+2. Work
+3. Social
+4. Educational
+5. Leisure
+</code></pre>
+</section>
+
+<!-- Tab 3: Machine JSON -->
+<section id="view-json" class="notion-page raw-view-panel">
+    <pre class="code-block"><code>{
+  &#34;label&#34;: &#34;2024-25&#34;,
+  &#34;year&#34;: 2024,
+  &#34;week_num&#34;: 25,
+  &#34;start_date&#34;: &#34;2024-06-16&#34;,
+  &#34;end_date&#34;: &#34;2024-06-22&#34;,
+  &#34;summary&#34;: {
+    &#34;total_messages&#34;: 7,
+    &#34;total_words&#34;: 68,
+    &#34;active_days&#34;: 5,
+    &#34;total_photos&#34;: 1,
+    &#34;tags_summary&#34;: [
+      {
+        &#34;tag&#34;: &#34;elden ring&#34;,
+        &#34;count&#34;: 2
+      },
+      {
+        &#34;tag&#34;: &#34;fitness&#34;,
+        &#34;count&#34;: 1
+      },
+      {
+        &#34;tag&#34;: &#34;coffee&#34;,
+        &#34;count&#34;: 1
+      },
+      {
+        &#34;tag&#34;: &#34;coding&#34;,
+        &#34;count&#34;: 1
+      }
+    ]
+  },
+  &#34;days&#34;: [
+    {
+      &#34;date&#34;: &#34;2024-06-16&#34;,
+      &#34;day_name&#34;: &#34;Sunday&#34;,
+      &#34;total_messages&#34;: 2,
+      &#34;total_words&#34;: 17,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [
+        &#34;fitness&#34;,
+        &#34;coffee&#34;
+      ],
+      &#34;entries&#34;: [
+        {
+          &#34;id&#34;: 66,
+          &#34;timestamp&#34;: &#34;2024-06-16T07:42:51&#34;,
+          &#34;date&#34;: &#34;2024-06-16&#34;,
+          &#34;time&#34;: &#34;07:42&#34;,
+          &#34;day_name&#34;: &#34;Sunday&#34;,
+          &#34;day_of_week&#34;: 6,
+          &#34;text&#34;: &#34;[fitness] Quick 30 minute mobility and core routine before dinner.&#34;,
+          &#34;word_count&#34;: 10,
+          &#34;char_count&#34;: 66,
+          &#34;tags&#34;: [
+            &#34;fitness&#34;
+          ],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        },
+        {
+          &#34;id&#34;: 67,
+          &#34;timestamp&#34;: &#34;2024-06-16T12:11:43&#34;,
+          &#34;date&#34;: &#34;2024-06-16&#34;,
+          &#34;time&#34;: &#34;12:11&#34;,
+          &#34;day_name&#34;: &#34;Sunday&#34;,
+          &#34;day_of_week&#34;: 6,
+          &#34;text&#34;: &#34;[coffee] Exploring local coffee roasters this afternoon.&#34;,
+          &#34;word_count&#34;: 7,
+          &#34;char_count&#34;: 56,
+          &#34;tags&#34;: [
+            &#34;coffee&#34;
+          ],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        }
+      ]
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-17&#34;,
+      &#34;day_name&#34;: &#34;Monday&#34;,
+      &#34;total_messages&#34;: 0,
+      &#34;total_words&#34;: 0,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [],
+      &#34;entries&#34;: []
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-18&#34;,
+      &#34;day_name&#34;: &#34;Tuesday&#34;,
+      &#34;total_messages&#34;: 1,
+      &#34;total_words&#34;: 11,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [
+        &#34;elden ring&#34;
+      ],
+      &#34;entries&#34;: [
+        {
+          &#34;id&#34;: 68,
+          &#34;timestamp&#34;: &#34;2024-06-18T10:59:54&#34;,
+          &#34;date&#34;: &#34;2024-06-18&#34;,
+          &#34;time&#34;: &#34;10:59&#34;,
+          &#34;day_name&#34;: &#34;Tuesday&#34;,
+          &#34;day_of_week&#34;: 1,
+          &#34;text&#34;: &#34;[elden ring] Defeated the boss after 12 attempts! Hands still shaking.&#34;,
+          &#34;word_count&#34;: 11,
+          &#34;char_count&#34;: 70,
+          &#34;tags&#34;: [
+            &#34;elden ring&#34;
+          ],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        }
+      ]
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-19&#34;,
+      &#34;day_name&#34;: &#34;Wednesday&#34;,
+      &#34;total_messages&#34;: 0,
+      &#34;total_words&#34;: 0,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [],
+      &#34;entries&#34;: []
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-20&#34;,
+      &#34;day_name&#34;: &#34;Thursday&#34;,
+      &#34;total_messages&#34;: 1,
+      &#34;total_words&#34;: 12,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [
+        &#34;elden ring&#34;
+      ],
+      &#34;entries&#34;: [
+        {
+          &#34;id&#34;: 69,
+          &#34;timestamp&#34;: &#34;2024-06-20T21:31:21&#34;,
+          &#34;date&#34;: &#34;2024-06-20&#34;,
+          &#34;time&#34;: &#34;21:31&#34;,
+          &#34;day_name&#34;: &#34;Thursday&#34;,
+          &#34;day_of_week&#34;: 3,
+          &#34;text&#34;: &#34;[elden ring] Exploring the underground river well area, the atmosphere is incredible.&#34;,
+          &#34;word_count&#34;: 12,
+          &#34;char_count&#34;: 85,
+          &#34;tags&#34;: [
+            &#34;elden ring&#34;
+          ],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        }
+      ]
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-21&#34;,
+      &#34;day_name&#34;: &#34;Friday&#34;,
+      &#34;total_messages&#34;: 1,
+      &#34;total_words&#34;: 9,
+      &#34;has_media&#34;: false,
+      &#34;tags&#34;: [],
+      &#34;entries&#34;: [
+        {
+          &#34;id&#34;: 70,
+          &#34;timestamp&#34;: &#34;2024-06-21T18:41:41&#34;,
+          &#34;date&#34;: &#34;2024-06-21&#34;,
+          &#34;time&#34;: &#34;18:41&#34;,
+          &#34;day_name&#34;: &#34;Friday&#34;,
+          &#34;day_of_week&#34;: 4,
+          &#34;text&#34;: &#34;Quiet Sunday reflections. Prepped everything for the week ahead.&#34;,
+          &#34;word_count&#34;: 9,
+          &#34;char_count&#34;: 64,
+          &#34;tags&#34;: [],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        }
+      ]
+    },
+    {
+      &#34;date&#34;: &#34;2024-06-22&#34;,
+      &#34;day_name&#34;: &#34;Saturday&#34;,
+      &#34;total_messages&#34;: 2,
+      &#34;total_words&#34;: 19,
+      &#34;has_media&#34;: true,
+      &#34;tags&#34;: [
+        &#34;coding&#34;
+      ],
+      &#34;entries&#34;: [
+        {
+          &#34;id&#34;: 71,
+          &#34;timestamp&#34;: &#34;2024-06-22T15:46:50&#34;,
+          &#34;date&#34;: &#34;2024-06-22&#34;,
+          &#34;time&#34;: &#34;15:46&#34;,
+          &#34;day_name&#34;: &#34;Saturday&#34;,
+          &#34;day_of_week&#34;: 5,
+          &#34;text&#34;: &#34;[coding] Writing automated unit tests to keep code coverage high.&#34;,
+          &#34;word_count&#34;: 10,
+          &#34;char_count&#34;: 65,
+          &#34;tags&#34;: [
+            &#34;coding&#34;
+          ],
+          &#34;has_photo&#34;: true,
+          &#34;has_media&#34;: true,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {},
+          &#34;total_reactions&#34;: 0
+        },
+        {
+          &#34;id&#34;: 72,
+          &#34;timestamp&#34;: &#34;2024-06-22T23:59:48&#34;,
+          &#34;date&#34;: &#34;2024-06-22&#34;,
+          &#34;time&#34;: &#34;23:59&#34;,
+          &#34;day_name&#34;: &#34;Saturday&#34;,
+          &#34;day_of_week&#34;: 5,
+          &#34;text&#34;: &#34;Had a productive day clearing backlogged tasks and emails.&#34;,
+          &#34;word_count&#34;: 9,
+          &#34;char_count&#34;: 58,
+          &#34;tags&#34;: [],
+          &#34;has_photo&#34;: false,
+          &#34;has_media&#34;: false,
+          &#34;media_type&#34;: null,
+          &#34;media_path&#34;: null,
+          &#34;reactions&#34;: {
+            &#34;🎉&#34;: 2,
+            &#34;🔥&#34;: 2
+          },
+          &#34;total_reactions&#34;: 4
+        }
+      ]
+    }
+  ],
+  &#34;tagged_groups&#34;: {
+    &#34;fitness&#34;: [
+      {
+        &#34;id&#34;: 66,
+        &#34;timestamp&#34;: &#34;2024-06-16T07:42:51&#34;,
+        &#34;date&#34;: &#34;2024-06-16&#34;,
+        &#34;time&#34;: &#34;07:42&#34;,
+        &#34;day_name&#34;: &#34;Sunday&#34;,
+        &#34;day_of_week&#34;: 6,
+        &#34;text&#34;: &#34;[fitness] Quick 30 minute mobility and core routine before dinner.&#34;,
+        &#34;word_count&#34;: 10,
+        &#34;char_count&#34;: 66,
+        &#34;tags&#34;: [
+          &#34;fitness&#34;
+        ],
+        &#34;has_photo&#34;: false,
+        &#34;has_media&#34;: false,
+        &#34;media_type&#34;: null,
+        &#34;media_path&#34;: null,
+        &#34;reactions&#34;: {},
+        &#34;total_reactions&#34;: 0
+      }
+    ],
+    &#34;coffee&#34;: [
+      {
+        &#34;id&#34;: 67,
+        &#34;timestamp&#34;: &#34;2024-06-16T12:11:43&#34;,
+        &#34;date&#34;: &#34;2024-06-16&#34;,
+        &#34;time&#34;: &#34;12:11&#34;,
+        &#34;day_name&#34;: &#34;Sunday&#34;,
+        &#34;day_of_week&#34;: 6,
+        &#34;text&#34;: &#34;[coffee] Exploring local coffee roasters this afternoon.&#34;,
+        &#34;word_count&#34;: 7,
+        &#34;char_count&#34;: 56,
+        &#34;tags&#34;: [
+          &#34;coffee&#34;
+        ],
+        &#34;has_photo&#34;: false,
+        &#34;has_media&#34;: false,
+        &#34;media_type&#34;: null,
+        &#34;media_path&#34;: null,
+        &#34;reactions&#34;: {},
+        &#34;total_reactions&#34;: 0
+      }
+    ],
+    &#34;elden ring&#34;: [
+      {
+        &#34;id&#34;: 68,
+        &#34;timestamp&#34;: &#34;2024-06-18T10:59:54&#34;,
+        &#34;date&#34;: &#34;2024-06-18&#34;,
+        &#34;time&#34;: &#34;10:59&#34;,
+        &#34;day_name&#34;: &#34;Tuesday&#34;,
+        &#34;day_of_week&#34;: 1,
+        &#34;text&#34;: &#34;[elden ring] Defeated the boss after 12 attempts! Hands still shaking.&#34;,
+        &#34;word_count&#34;: 11,
+        &#34;char_count&#34;: 70,
+        &#34;tags&#34;: [
+          &#34;elden ring&#34;
+        ],
+        &#34;has_photo&#34;: false,
+        &#34;has_media&#34;: false,
+        &#34;media_type&#34;: null,
+        &#34;media_path&#34;: null,
+        &#34;reactions&#34;: {},
+        &#34;total_reactions&#34;: 0
+      },
+      {
+        &#34;id&#34;: 69,
+        &#34;timestamp&#34;: &#34;2024-06-20T21:31:21&#34;,
+        &#34;date&#34;: &#34;2024-06-20&#34;,
+        &#34;time&#34;: &#34;21:31&#34;,
+        &#34;day_name&#34;: &#34;Thursday&#34;,
+        &#34;day_of_week&#34;: 3,
+        &#34;text&#34;: &#34;[elden ring] Exploring the underground river well area, the atmosphere is incredible.&#34;,
+        &#34;word_count&#34;: 12,
+        &#34;char_count&#34;: 85,
+        &#34;tags&#34;: [
+          &#34;elden ring&#34;
+        ],
+        &#34;has_photo&#34;: false,
+        &#34;has_media&#34;: false,
+        &#34;media_type&#34;: null,
+        &#34;media_path&#34;: null,
+        &#34;reactions&#34;: {},
+        &#34;total_reactions&#34;: 0
+      }
+    ],
+    &#34;coding&#34;: [
+      {
+        &#34;id&#34;: 71,
+        &#34;timestamp&#34;: &#34;2024-06-22T15:46:50&#34;,
+        &#34;date&#34;: &#34;2024-06-22&#34;,
+        &#34;time&#34;: &#34;15:46&#34;,
+        &#34;day_name&#34;: &#34;Saturday&#34;,
+        &#34;day_of_week&#34;: 5,
+        &#34;text&#34;: &#34;[coding] Writing automated unit tests to keep code coverage high.&#34;,
+        &#34;word_count&#34;: 10,
+        &#34;char_count&#34;: 65,
+        &#34;tags&#34;: [
+          &#34;coding&#34;
+        ],
+        &#34;has_photo&#34;: true,
+        &#34;has_media&#34;: true,
+        &#34;media_type&#34;: null,
+        &#34;media_path&#34;: null,
+        &#34;reactions&#34;: {},
+        &#34;total_reactions&#34;: 0
+      }
+    ]
+  }
+}</code></pre>
+</section>
+
+<script>
+    function switchView(mode, btn) {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.getElementById('view-page').style.display = mode === 'page' ? 'block' : 'none';
+        document.getElementById('view-markdown').classList.toggle('active', mode === 'markdown');
+        document.getElementById('view-json').classList.toggle('active', mode === 'json');
+    }
+</script>
+
+</body>
+</html>

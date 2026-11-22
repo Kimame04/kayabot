@@ -130,4 +130,10 @@ def export_digest(
         md_file.write_text(md_content, encoding="utf-8")
         written_files["md"] = md_file
 
+    if "html" in target_formats:
+        from .visual import generate_digest_html_file
+        html_file = output_path / f"digest_{safe_label}.html"
+        generate_digest_html_file(digest, html_file)
+        written_files["html"] = html_file
+
     return written_files

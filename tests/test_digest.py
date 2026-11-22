@@ -17,6 +17,7 @@ from src.digest import (
     WeeklyDigest,
     build_weekly_digest,
     export_digest,
+    format_digest_html,
     format_digest_json,
     format_digest_markdown,
     format_week_label,
@@ -247,13 +248,28 @@ class TestDigestFormatters(unittest.TestCase):
         self.assertIn("1. Health", md_output)
         self.assertIn("5. Leisure", md_output)
 
+    def test_html_formatter(self):
+        html_output = format_digest_html(self.digest)
+        self.assertIn("<!DOCTYPE html>", html_output)
+        self.assertIn("2026-48", html_output)
+        self.assertIn("A quick summary of events that happened the last week", html_output)
+        self.assertIn("- Monday", html_output)
+        self.assertIn("autonomous docking worked!", html_output)
+        self.assertIn("docking.jpg", html_output)
+        self.assertIn("robotics", html_output)
+        self.assertIn("Biggest win", html_output)
+        self.assertIn("Biggest challenge", html_output)
+        self.assertIn("Outcomes for next week", html_output)
+
     def test_export_digest_disk(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            res = export_digest(self.digest, out_dir=tmp_dir, formats=["json", "md"])
+            res = export_digest(self.digest, out_dir=tmp_dir, formats=["json", "md", "html"])
             self.assertIn("json", res)
             self.assertIn("md", res)
+            self.assertIn("html", res)
             self.assertTrue(res["json"].exists())
             self.assertTrue(res["md"].exists())
+            self.assertTrue(res["html"].exists())
 
             # Verify contents
             saved_json = json.loads(res["json"].read_text(encoding="utf-8"))
@@ -261,6 +277,10 @@ class TestDigestFormatters(unittest.TestCase):
 
             saved_md = res["md"].read_text(encoding="utf-8")
             self.assertTrue(saved_md.startswith("# 🧩 2026-48"))
+
+            saved_html = res["html"].read_text(encoding="utf-8")
+            self.assertIn("<!DOCTYPE html>", saved_html)
+            self.assertIn("2026-48", saved_html)
 
 
 if __name__ == "__main__":

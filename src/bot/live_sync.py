@@ -351,6 +351,7 @@ def load_unified_journal(
     delta_path: Optional[Path] = None,
     verbose: bool = False,
     allow_sample: bool = False,
+    include_live: bool = True,
 ) -> pd.DataFrame:
     """
     Load the unified journal dataset combining:
@@ -358,6 +359,8 @@ def load_unified_journal(
     2. Live Delta Layer (live_messages.parquet)
     Deduplicates on message ID so live edits seamlessly supersede older copies.
     If no historical export directory exists, operates cleanly in Live-Only mode.
+    Synthetic sample fixtures (ChatExport_sample) ignore the global live delta layer
+    to guarantee strict privacy and benchmark isolation.
     """
     target_dir = export_dir if export_dir is not None else resolve_export_dir(allow_sample=allow_sample)
     base_df = pd.DataFrame()
@@ -368,6 +371,10 @@ def load_unified_journal(
             base_df = pd.DataFrame()
     elif verbose and export_dir is None:
         print("[LiveSync] No historical ChatExport found. Operating in Live-Only mode.")
+
+    # Never merge personal live delta into synthetic sample datasets unless explicitly directed via delta_path
+    if not include_live or (target_dir is not None and target_dir.name == "ChatExport_sample" and delta_path is None):
+        return base_df
 
     path = delta_path or get_live_delta_path(target_dir)
 

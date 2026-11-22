@@ -19,6 +19,8 @@ from .formatter import (
     format_digest_json,
     format_digest_markdown,
 )
+from .visual import render_digest_html, generate_digest_html_file
+from .html_renderer import format_digest_html
 
 __all__ = [
     "DigestEntry",
@@ -26,11 +28,14 @@ __all__ = [
     "WeeklyDigest",
     "build_weekly_digest",
     "export_digest",
+    "format_digest_html",
     "format_digest_json",
     "format_digest_markdown",
     "format_week_label",
+    "generate_digest_html_file",
     "get_previous_week_bounds",
     "get_sunday_start_bounds",
     "parse_week_label",
+    "render_digest_html",
     "week_bounds_from_label",
 ]
