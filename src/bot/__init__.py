@@ -5,6 +5,11 @@ Provides decoupled bot API client, message formatters, and interactive handlers.
 
 from src.bot.client import TelegramClient
 from src.bot.config import BotConfig, load_config
+from src.bot.compaction import (
+    consolidate_cache,
+    create_snapshot_backup,
+    resolve_export_dir,
+)
 from src.bot.discord_relay import (
     flush_pending_relays,
     format_discord_payload,
@@ -33,4 +38,7 @@ __all__ = [
     "ingest_channel_post",
     "load_unified_journal",
     "parse_channel_post",
+    "consolidate_cache",
+    "create_snapshot_backup",
+    "resolve_export_dir",
 ]
