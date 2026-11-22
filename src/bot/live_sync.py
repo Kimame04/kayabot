@@ -20,9 +20,10 @@ from src.parser import _extract_bracket_tags, _sanitize_reactions, load_export
 def get_live_delta_path(export_dir: Optional[Path] = None) -> Path:
     """Return the destination path for the live delta Parquet store."""
     if export_dir and export_dir.exists() and export_dir.is_dir():
-        cache_dir = export_dir / ".cache"
-    else:
-        cache_dir = get_repo_root() / ".cache"
+        cand = export_dir / ".cache" / "live_messages.parquet"
+        if cand.exists():
+            return cand
+    cache_dir = get_repo_root() / ".cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "live_messages.parquet"
 

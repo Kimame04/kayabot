@@ -81,11 +81,12 @@ Run analytics directly from your terminal or open standalone dark-mode HTML repo
 # Master Dossier: runs all 4 engines in ~0.2s and opens unified dashboard
 python -m scripts.run_all --open
 
-# Individual Reports
-python -m scripts.run_circadian       # 24h hourly curves, weekly heatmaps, night-owl index
-python -m scripts.run_tag_lifecycles  # [tag] streamgraph & lifespan categorization
-python -m scripts.run_wrapped         # Spotify Wrapped-style story deck (--all-time or --year 2024)
-python -m scripts.run_otd             # Terminal flashback feed (--date 09-15 --window 2)
+# Individual Reports & Exporters
+python -m scripts.run_circadian         # 24h hourly curves, weekly heatmaps, night-owl index
+python -m scripts.run_tag_lifecycles    # [tag] streamgraph & lifespan categorization
+python -m scripts.run_wrapped           # Spotify Wrapped-style story deck (--all-time or --year 2024)
+python -m scripts.run_otd               # Terminal flashback feed (--date 09-15 --window 2)
+python -m scripts.export_weekly_digest  # Export Sunday-to-Saturday weekly digest (--week 2026-48)
 ```
 
 ---
@@ -95,7 +96,7 @@ python -m scripts.run_otd             # Terminal flashback feed (--date 09-15 --
 ```bash
 python -m unittest discover tests
 ```
-* **83/83 unit tests passing** with 100% mocked network calls.
+* **96/96 unit tests passing** with 100% mocked network calls.
 * Fully self-contained; tests run against synthetic benchmarks (`ChatExport_sample/`) without needing private data.
 
 ---

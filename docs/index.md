@@ -15,6 +15,7 @@ Interactive reports generated from a 400-message mock dataset. No server require
 | **On This Day (OTD)** | Multi-year personal flashback for matching calendar days | [on_this_day.html](demos/on_this_day.html) | `python -m scripts.run_otd` |
 | **Tag Lifecycles** | Streamgraph & lifespan categorization of bracket tags `[tag]` | [tag_lifecycle_report.html](demos/tag_lifecycle_report.html) | `python -m scripts.run_tag_lifecycles` |
 | **Circadian Habits** | 24-hour distribution, weekly heatmaps & longitudinal shifts | [circadian_report.html](demos/circadian_report.html) | `python -m scripts.run_circadian` |
+| **Weekly Digest** | Sunday-to-Saturday journal compiler & structured JSON/Markdown exporter | — | `python -m scripts.export_weekly_digest` |
 
 ---
 
@@ -115,6 +116,23 @@ A silent 24/7 background daemon (`scripts/setup_daemon.py`) that captures live c
 
 ---
 
+### 7. Weekly Journal Digest Extractor
+Extracts, structures, and compiles personal reflections for any target Sunday-to-Saturday calendar week:
+- **Calendar Bounds:** Computes the 7-day Sunday-to-Saturday window matching standard journal recap cadences.
+- **Topic Routing:** Identifies bracket tags (e.g. `[reading]`, `[coding]`, `[fitness]`) and groups tagged entries for seamless cross-posting to external tools (Obsidian, Notion, Logseq).
+- **Multi-Format Export:** Emits structured UTF-8 JSON payloads and clean Markdown with daily bullet indentation, media flags (`📷 *[Photo]*`), and 5-pillar retrospective templates (`Biggest win`, `Biggest challenge`, `Health`, `Work`, `Social`, `Educational`, `Leisure`).
+
+```bash
+# Export latest completed week as JSON and Markdown
+python -m scripts.export_weekly_digest
+
+# Export specific calendar week or by date
+python -m scripts.export_weekly_digest --week 2026-47
+python -m scripts.export_weekly_digest --date 2026-11-20 --format md
+```
+
+---
+
 ## Quickstart
 
 ### 1. Setup Environment
@@ -164,7 +182,7 @@ python -m scripts.run_otd --random
 
 ### 5. Run Automated Tests
 ```bash
-# 100% self-contained; all 84 tests pass without private data
+# 100% self-contained; all 96 tests pass without private data
 python -m unittest discover tests
 ```
 

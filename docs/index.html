@@ -853,7 +853,7 @@
                             🚀 Launch Master Dossier Demo
                         </a>
                         <span class="status-pill" style="padding: 8px 12px; font-size: 0.85rem;">
-                            ✓ 84/84 Tests Passing
+                            ✓ 96/96 Tests Passing
                         </span>
                     </div>
                 </section>
@@ -1078,7 +1078,10 @@ cp .env.example .env
 python -m scripts.setup_daemon install
 
 # 4. Run full analytics suite & open master dashboard
-python -m scripts.run_all --open</code></pre>
+python -m scripts.run_all --open
+
+# 5. Export weekly Sunday-to-Saturday journal digest (JSON & Markdown)
+python -m scripts.export_weekly_digest --week 2026-47</code></pre>
                     </div>
                 </article>
 
