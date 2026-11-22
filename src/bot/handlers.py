@@ -478,6 +478,7 @@ class BotDispatcher:
                 .sort_values("timestamp")
                 .reset_index(drop=True)
             )
+            row["total_volume"] = len(self.df)
 
         status_tag = "New entry" if is_new else "Edited entry"
         fwd_note = f" [Forwarded from {row['forward_source_name']}]" if row.get("is_forwarded") and row.get("forward_source_name") else ""

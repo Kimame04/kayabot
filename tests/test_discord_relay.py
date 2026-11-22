@@ -38,9 +38,22 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertEqual(embed["description"], "Reflecting on system architecture.")
         self.assertEqual(embed["author"]["name"], "🖋️ Journal")
         self.assertIn("4 words", embed["footer"]["text"])
-        self.assertIn("Entry #101", embed["footer"]["text"])
+        self.assertIn("Msg #101", embed["footer"]["text"])
         self.assertEqual(embed["color"], 0xF1C40F)  # 10:00 is Morning Gold
         self.assertNotIn("fields", embed)
+
+    def test_footer_with_total_volume(self):
+        row = {
+            "id": 102,
+            "timestamp": datetime(2026, 11, 1, 10, 0, 0),
+            "text": "Reflecting on volume metrics.",
+            "word_count": 4,
+            "total_volume": 5786,
+        }
+        payload = format_discord_payload(row)
+        footer = payload["embeds"][0]["footer"]["text"]
+        self.assertIn("Msg #102", footer)
+        self.assertIn("5,786 total", footer)
 
     def test_circadian_colors(self):
         self.assertEqual(get_circadian_embed_color(datetime(2026, 11, 1, 8, 0)), 0xF1C40F)   # Morning

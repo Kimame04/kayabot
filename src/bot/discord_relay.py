@@ -93,6 +93,7 @@ def format_discord_payload(
     attachment_filename: Optional[str] = None,
     media_warning: Optional[str] = None,
     is_edited: bool = False,
+    total_volume: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Construct a JSON-serializable Discord webhook payload featuring a rich embed.
@@ -168,12 +169,15 @@ def format_discord_payload(
             "inline": False,
         })
 
-    # Word count & Entry ID footer
+    # Word count, Telegram Message ID, and total volume footer
     word_count = row.get("word_count", len(raw_text.split()))
     entry_id = row.get("id", "")
+    total = total_volume if total_volume is not None else (row.get("total_volume") or row.get("total_count"))
     footer_text = f"💬 {word_count} words"
     if entry_id:
-        footer_text += f" • Entry #{entry_id}"
+        footer_text += f" • Msg #{entry_id}"
+    if total:
+        footer_text += f" • {total:,} total"
     if is_edited or row.get("is_edited"):
         footer_text += " • (edited)"
 
@@ -233,6 +237,7 @@ def send_discord_relay(
     bot_name: str = "Kaya",
     author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
+    total_volume: Optional[int] = None,
     timeout: int = 15,
 ) -> Optional[str]:
     """
@@ -258,6 +263,7 @@ def send_discord_relay(
                 author_icon_url=author_icon_url,
                 attachment_filename=filename,
                 media_warning=media_warning,
+                total_volume=total_volume,
             )
             data, content_type = encode_multipart_form(payload, file_bytes, filename)
             headers = {
@@ -271,6 +277,7 @@ def send_discord_relay(
                 author_name=author_name,
                 author_icon_url=author_icon_url,
                 media_warning=media_warning,
+                total_volume=total_volume,
             )
             data = json.dumps(payload).encode("utf-8")
             headers = {
@@ -346,6 +353,7 @@ def edit_discord_relay(
     bot_name: str = "Kaya",
     author_name: str = "Journal",
     author_icon_url: Optional[str] = None,
+    total_volume: Optional[int] = None,
     timeout: int = 15,
 ) -> bool:
     """
@@ -375,6 +383,7 @@ def edit_discord_relay(
                 attachment_filename=filename,
                 media_warning=media_warning,
                 is_edited=True,
+                total_volume=total_volume,
             )
             data, content_type = encode_multipart_form(payload, file_bytes, filename)
             headers = {
@@ -389,6 +398,7 @@ def edit_discord_relay(
                 author_icon_url=author_icon_url,
                 media_warning=media_warning,
                 is_edited=True,
+                total_volume=total_volume,
             )
             data = json.dumps(payload).encode("utf-8")
             headers = {
