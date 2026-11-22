@@ -2,7 +2,7 @@
 
 > A personal reflection familiar for Telegram channels. Streams live thoughts into Discord with circadian aesthetics, backed by multi-year flashbacks and deep behavioral analytics.
 
-[![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen.svg)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-100%20passed-brightgreen.svg)](#-testing)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](environment.yml)
 [![Zero Dependency Bot API](https://img.shields.io/badge/bot--api-zero--dependency-orange.svg)](src/bot/client.py)
 [![Privacy First](https://img.shields.io/badge/privacy-100%25%20offline-success.svg)](#-privacy--data-isolation)
@@ -87,6 +87,7 @@ python -m scripts.run_tag_lifecycles    # [tag] streamgraph & lifespan categoriz
 python -m scripts.run_wrapped           # Spotify Wrapped-style story deck (--all-time or --year 2024)
 python -m scripts.run_otd               # Terminal flashback feed (--date 09-15 --window 2)
 python -m scripts.export_weekly_digest  # Export Sunday-to-Saturday weekly digest (--week 2026-48)
+python -m scripts.consolidate_cache     # Consolidate live buffer into cold storage & backup
 ```
 
 ---
@@ -96,7 +97,7 @@ python -m scripts.export_weekly_digest  # Export Sunday-to-Saturday weekly diges
 ```bash
 python -m unittest discover tests
 ```
-* **96/96 unit tests passing** with 100% mocked network calls.
+* **100/100 unit tests passing** with 100% mocked network calls.
 * Fully self-contained; tests run against synthetic benchmarks (`ChatExport_sample/`) without needing private data.
 
 ---

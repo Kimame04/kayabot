@@ -17,7 +17,7 @@ import argparse
 from pathlib import Path
 from datetime import date
 
-from src.parser import load_export
+from src.parser import load_export, resolve_export_dir
 from src.otd import (
     parse_query_date,
     query_on_this_day,
@@ -66,8 +66,8 @@ def main() -> None:
         "--export-dir",
         "-i",
         type=str,
-        default="ChatExport_kieran's channel",
-        help="Path to the Telegram ChatExport directory.",
+        default=None,
+        help="Path to the Telegram ChatExport directory (auto-discovered if omitted).",
     )
     parser.add_argument(
         "--output-dir",
@@ -90,7 +90,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    export_path = Path(args.export_dir)
+    export_path = resolve_export_dir(args.export_dir)
     output_path = Path(args.output_dir)
 
     # 1. Load data

@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from src.parser import load_export
+from src.parser import load_export, resolve_export_dir
 from src.circadian import generate_circadian_report
 
 
@@ -24,8 +24,8 @@ def main() -> None:
         "--export-dir",
         "-i",
         type=str,
-        default="ChatExport_kieran's channel",
-        help="Path to the Telegram ChatExport directory containing messages*.html (default: 'ChatExport_kieran\\'s channel')",
+        default=None,
+        help="Path to the Telegram ChatExport directory (auto-discovered if omitted)",
     )
     parser.add_argument(
         "--output-dir",
@@ -48,7 +48,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    export_path = Path(args.export_dir)
+    export_path = resolve_export_dir(args.export_dir)
     output_path = Path(args.output_dir)
 
     print("=" * 65)

@@ -16,8 +16,8 @@ import pandas as pd
 from src.bot.compaction import (
     consolidate_cache,
     create_snapshot_backup,
-    resolve_export_dir,
 )
+from src.parser import resolve_export_dir
 from src.bot.live_sync import _save_delta_df, load_unified_journal
 
 
@@ -181,12 +181,12 @@ class TestCompactionEngine(unittest.TestCase):
 
         # In empty workspace without allow_sample, must NOT resolve to sample
         from unittest.mock import patch
-        with patch("src.bot.compaction.get_repo_root", return_value=empty_root):
+        with patch("src.parser.get_repo_root", return_value=empty_root):
             self.assertIsNone(resolve_export_dir(allow_sample=False))
             self.assertEqual(resolve_export_dir(allow_sample=True), empty_root / "ChatExport_sample")
 
         # In empty workspace with live delta only, load_unified_journal serves live messages only
-        with patch("src.parser.get_repo_root", return_value=empty_root), patch("src.bot.live_sync.resolve_export_dir", return_value=None):
+        with patch("src.parser.get_repo_root", return_value=empty_root):
             unified = load_unified_journal(export_dir=None, delta_path=self.live_file, allow_sample=False)
             self.assertEqual(len(unified), 1)
             self.assertEqual(unified["id"].iloc[0], 2)

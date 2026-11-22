@@ -9,13 +9,61 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from bs4 import BeautifulSoup
+
+
+def get_repo_root() -> Path:
+    """Return repository root path."""
+    return Path(__file__).resolve().parent.parent
+
+
+def resolve_export_dir(
+    preferred_dir: Optional[Union[str, Path]] = None,
+    allow_sample: bool = False,
+) -> Optional[Path]:
+    """
+    Resolve the Telegram export directory path with strict separation between
+    real user archives and the synthetic benchmark fixture:
+    1. Preferred directory if passed explicitly (e.g. CLI --export-dir) and exists.
+       (If user explicitly requested 'ChatExport_sample', it is honored).
+    2. DEFAULT_EXPORT_DIR environment variable (if set and exists).
+    3. Any personal ChatExport_* directory in repo root (excluding ChatExport_sample).
+    4. ChatExport_sample ONLY if allow_sample=True (e.g. in test suites/demos).
+    5. Returns None if no personal export directory is found (prevents sample pollution).
+    """
+    root = get_repo_root()
+    if preferred_dir:
+        p = Path(preferred_dir).expanduser()
+        if not p.is_absolute():
+            p = root / p
+        if p.exists() and p.is_dir():
+            return p
+
+    env_dir = os.getenv("DEFAULT_EXPORT_DIR")
+    if env_dir:
+        p = Path(env_dir).expanduser()
+        if not p.is_absolute():
+            p = root / p
+        if p.exists() and p.is_dir():
+            return p
+
+    for candidate in sorted(root.glob("ChatExport_*")):
+        if candidate.is_dir() and candidate.name != "ChatExport_sample":
+            return candidate
+
+    if allow_sample:
+        sample = root / "ChatExport_sample"
+        if sample.exists() and sample.is_dir():
+            return sample
+
+    return None
 
 
 def _sanitize_reactions(r: Any) -> Dict[str, int]:
@@ -192,7 +240,7 @@ def parse_telegram_html(file_path: Path) -> List[Dict[str, Any]]:
 
 
 def load_export(
-    export_dir_path: str | Path,
+    export_dir_path: Optional[str | Path] = None,
     use_cache: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -200,23 +248,43 @@ def load_export(
     Universal entry point to load and parse any Telegram export folder.
 
     Parameters:
-        export_dir_path: Path to the ChatExport folder.
+        export_dir_path: Path to the ChatExport folder (auto-resolved if None).
         use_cache: If True, uses/updates a fast cache inside .cache/
         verbose: If True, prints parsing progress.
 
     Returns:
         pd.DataFrame containing structured message logs with calendar features.
     """
-    export_dir = Path(export_dir_path).expanduser().resolve()
+    if export_dir_path is None:
+        export_dir = resolve_export_dir()
+        if export_dir is None:
+            raise FileNotFoundError(
+                "No personal Telegram ChatExport directory found in repository. "
+                "Please place your 'ChatExport_*' folder in the repo root or configure DEFAULT_EXPORT_DIR in .env."
+            )
+    else:
+        export_dir = Path(export_dir_path).expanduser().resolve()
+
     if not export_dir.exists() or not export_dir.is_dir():
         raise FileNotFoundError(f"Export directory not found: {export_dir}")
 
-    html_files = _find_export_html_files(export_dir)
-    if not html_files:
-        raise FileNotFoundError(f"No messages*.html files found in {export_dir}")
-
-    cache_dir = export_dir / ".cache"
+    cache_dir = export_dir / ".cache" if export_dir.name != ".cache" else export_dir
     cache_file = cache_dir / "parsed_messages.parquet"
+    html_files = _find_export_html_files(export_dir)
+
+    # Standalone cache fallback if no HTML files exist in directory
+    if not html_files:
+        if cache_file.exists():
+            if verbose:
+                print(f"[Parser] Loading cached data from {cache_file.name}...")
+            df = pd.read_parquet(cache_file)
+            if "tags" in df.columns:
+                df["tags"] = df["tags"].apply(lambda t: list(t) if hasattr(t, "__iter__") and not isinstance(t, (str, bytes)) else [])
+            if "reactions" in df.columns:
+                df["reactions"] = df["reactions"].apply(_sanitize_reactions)
+                df["total_reactions"] = df["reactions"].apply(lambda r: sum(r.values()))
+            return df
+        raise FileNotFoundError(f"No messages*.html files found in {export_dir}")
 
     # Check cache validity against newest HTML file
     newest_mtime = max(f.stat().st_mtime for f in html_files)

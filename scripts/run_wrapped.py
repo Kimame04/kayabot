@@ -17,23 +17,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from src.parser import load_export
+from src.parser import load_export, resolve_export_dir
 from src.wrapped import (
     compute_wrapped,
     render_wrapped_terminal,
     generate_wrapped_html,
 )
-
-
-def _resolve_default_export_dir() -> Path:
-    """Choose best default export directory."""
-    primary = Path("ChatExport_kieran's channel")
-    if primary.exists() and (primary / "messages.html").exists():
-        return primary
-    sample = Path("ChatExport_sample")
-    if sample.exists() and (sample / "messages.html").exists():
-        return sample
-    return primary
 
 
 def main() -> None:
@@ -89,10 +78,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # 1. Resolve export directory
-    if args.export_dir:
-        export_path = Path(args.export_dir)
-    else:
-        export_path = _resolve_default_export_dir()
+    export_path = resolve_export_dir(args.export_dir)
 
     output_dir = Path(args.output_dir)
 

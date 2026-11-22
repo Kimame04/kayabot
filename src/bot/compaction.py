@@ -25,25 +25,7 @@ from src.bot.live_sync import (
     get_repo_root,
     load_unified_journal,
 )
-from src.parser import _sanitize_reactions, load_export
-
-
-def resolve_export_dir(export_dir: Optional[Path] = None, allow_sample: bool = False) -> Optional[Path]:
-    """Resolve target export directory, auto-detecting any local export or sample archive."""
-    if export_dir and Path(export_dir).exists():
-        return Path(export_dir).resolve()
-
-    repo_root = get_repo_root()
-    for candidate in sorted(repo_root.glob("ChatExport_*")):
-        if candidate.is_dir() and candidate.name != "ChatExport_sample":
-            return candidate
-
-    if allow_sample:
-        sample_export = repo_root / "ChatExport_sample"
-        if sample_export.exists() and sample_export.is_dir():
-            return sample_export
-
-    return None
+from src.parser import _sanitize_reactions, load_export, resolve_export_dir
 
 
 def get_default_backup_dir(export_dir: Optional[Path] = None) -> Path:

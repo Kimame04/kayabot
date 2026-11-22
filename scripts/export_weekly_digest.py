@@ -19,6 +19,7 @@ import sys
 from typing import Optional, Tuple
 
 from src.bot.live_sync import load_unified_journal
+from src.parser import resolve_export_dir
 from src.digest import (
     build_weekly_digest,
     export_digest,
@@ -28,14 +29,6 @@ from src.digest import (
     parse_week_label,
     week_bounds_from_label,
 )
-
-
-def _resolve_default_export_dir() -> Path:
-    """Find the best default export folder across private and synthetic environments."""
-    for candidate in [Path("ChatExport_kieran's channel"), Path("ChatExport_sample")]:
-        if candidate.exists() and (candidate / "messages.html").exists():
-            return candidate
-    return Path("ChatExport_sample")
 
 
 def _resolve_target_window(
@@ -132,7 +125,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # 1. Resolve export directory
-    export_dir = Path(args.export_dir) if args.export_dir else _resolve_default_export_dir()
+    export_dir = resolve_export_dir(args.export_dir)
     if not export_dir.exists():
         print(f"❌ Error: Export directory not found: {export_dir}", file=sys.stderr)
         sys.exit(1)

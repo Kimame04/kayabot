@@ -182,7 +182,7 @@ python -m scripts.run_otd --random
 
 ### 5. Run Automated Tests
 ```bash
-# 100% self-contained; all 96 tests pass without private data
+# 100% self-contained; all 100 tests pass without private data
 python -m unittest discover tests
 ```
 

@@ -18,7 +18,7 @@ import argparse
 from pathlib import Path
 import webbrowser
 
-from src.parser import load_export
+from src.parser import load_export, resolve_export_dir
 from src.dashboard import generate_dashboard
 
 
@@ -30,8 +30,8 @@ def main() -> None:
         "--export-dir",
         "-i",
         type=str,
-        default="ChatExport_kieran's channel",
-        help="Path to the Telegram ChatExport directory (default: 'ChatExport_kieran\\'s channel')",
+        default=None,
+        help="Path to the Telegram ChatExport directory (auto-discovered if omitted)",
     )
     parser.add_argument(
         "--output-dir",
@@ -96,7 +96,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    export_path = Path(args.export_dir)
+    export_path = resolve_export_dir(args.export_dir)
     output_dir = Path(args.output_dir)
     dashboard_path = output_dir / args.dashboard_name
 

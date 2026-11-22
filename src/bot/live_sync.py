@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from src.bot.config import get_repo_root
-from src.parser import _extract_bracket_tags, _sanitize_reactions, load_export
+from src.parser import _extract_bracket_tags, _sanitize_reactions, load_export, resolve_export_dir
 
 
 def get_live_delta_path(export_dir: Optional[Path] = None) -> Path:
@@ -347,18 +347,29 @@ def ingest_channel_post(
 
 
 def load_unified_journal(
-    export_dir: Path,
+    export_dir: Optional[Path] = None,
     delta_path: Optional[Path] = None,
     verbose: bool = False,
+    allow_sample: bool = False,
 ) -> pd.DataFrame:
     """
     Load the unified journal dataset combining:
     1. Historical Base Archive (ChatExport directory via load_export)
     2. Live Delta Layer (live_messages.parquet)
     Deduplicates on message ID so live edits seamlessly supersede older copies.
+    If no historical export directory exists, operates cleanly in Live-Only mode.
     """
-    base_df = load_export(export_dir, verbose=verbose)
-    path = delta_path or get_live_delta_path(export_dir)
+    target_dir = export_dir if export_dir is not None else resolve_export_dir(allow_sample=allow_sample)
+    base_df = pd.DataFrame()
+    if target_dir is not None and target_dir.exists():
+        try:
+            base_df = load_export(target_dir, verbose=verbose)
+        except FileNotFoundError:
+            base_df = pd.DataFrame()
+    elif verbose and export_dir is None:
+        print("[LiveSync] No historical ChatExport found. Operating in Live-Only mode.")
+
+    path = delta_path or get_live_delta_path(target_dir)
 
     if not path.exists():
         return base_df

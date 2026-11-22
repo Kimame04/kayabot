@@ -18,9 +18,9 @@ def get_test_export_dir() -> Path:
     if sample_dir.exists() and (sample_dir / "messages.html").exists():
         return sample_dir
 
-    private_dir = Path("ChatExport_kieran's channel")
-    if private_dir.exists() and (private_dir / "messages.html").exists():
-        return private_dir
+    for candidate in sorted(Path(".").glob("ChatExport_*")):
+        if candidate.is_dir() and candidate.name != "ChatExport_sample" and (candidate / "messages.html").exists():
+            return candidate
 
     # Generate synthetic sample fixture on-the-fly
     messages = generate_synthetic_journal(num_messages=400, seed=42)

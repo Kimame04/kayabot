@@ -21,37 +21,7 @@ from src.bot.formatter import (
     format_tag_message,
 )
 from src.otd.logic import get_random_active_day, parse_query_date, query_on_this_day
-
-
-def resolve_export_dir(preferred_dir: Optional[str | Path] = None) -> Path:
-    """
-    Resolve the Telegram export directory path with robust fallbacks:
-    1. Preferred directory if passed and exists.
-    2. 'ChatExport_kieran's channel' in repo root.
-    3. Any ChatExport_* directory in repo root.
-    4. 'ChatExport_sample' benchmark fixture.
-    """
-    root = get_repo_root()
-    if preferred_dir:
-        p = Path(preferred_dir).expanduser()
-        if not p.is_absolute():
-            p = root / p
-        if p.exists() and p.is_dir():
-            return p
-
-    default_personal = root / "ChatExport_kieran's channel"
-    if default_personal.exists() and default_personal.is_dir():
-        return default_personal
-
-    for candidate in sorted(root.glob("ChatExport_*")):
-        if candidate.is_dir() and candidate.name != "ChatExport_sample":
-            return candidate
-
-    sample = root / "ChatExport_sample"
-    if sample.exists() and sample.is_dir():
-        return sample
-
-    raise FileNotFoundError("Could not find any Telegram export directory in repository.")
+from src.parser import resolve_export_dir
 
 
 def compute_quick_stats(df: pd.DataFrame) -> Dict[str, Any]:
