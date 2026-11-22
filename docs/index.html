@@ -190,11 +190,15 @@
             color: var(--text-muted);
         }
 
+        .sidebar-channels-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 12px;
+        }
+
         .sidebar-channel-list {
             list-style: none;
             padding: 0 8px;
-            flex: 1;
-            overflow-y: auto;
         }
 
         .sidebar-channel-item {
@@ -234,6 +238,16 @@
             margin-left: auto;
             font-size: 0.65rem;
             background-color: var(--discord-blurple);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+
+        .badge-wip {
+            margin-left: auto;
+            font-size: 0.65rem;
+            background-color: #f39c12;
             color: #fff;
             padding: 2px 6px;
             border-radius: 8px;
@@ -578,6 +592,7 @@
         .border-sunset    { border-left-color: #E67E22 !important; }
         .border-fuchsia   { border-left-color: #EB459E !important; }
         .border-green     { border-left-color: #57F287 !important; }
+        .border-wip       { border-left-color: #F39C12 !important; }
 
         /* Discord Image Preview Cards */
         .image-preview-card {
@@ -742,7 +757,7 @@
         <div class="topbar-right">
             <span class="status-pill">
                 <span class="status-dot"></span>
-                KayaBot Active (v2.1)
+                KayaBot Active
             </span>
             <!-- EXPLICIT REPOSITORY LINK -->
             <a href="https://github.com/Kimame04/kayabot" target="_blank" rel="noopener noreferrer" class="github-repo-link" title="Open GitHub Repository">
@@ -763,66 +778,75 @@
                 <span>🥪 KayaBot HQ</span>
             </div>
             
-            <div class="sidebar-category">Text Channels</div>
-            <ul class="sidebar-channel-list">
-                <li class="sidebar-channel-item">
-                    <a href="#welcome" class="sidebar-channel-link active">
-                        <span class="hash">#</span>
-                        <span>reflections</span>
-                        <span class="badge-live">LIVE</span>
-                    </a>
-                </li>
-            </ul>
+            <div class="sidebar-channels-scroll">
+                <div class="sidebar-category">Text Channels</div>
+                <ul class="sidebar-channel-list">
+                    <li class="sidebar-channel-item">
+                        <a href="#welcome" class="sidebar-channel-link active">
+                            <span class="hash">#</span>
+                            <span>reflections</span>
+                            <span class="badge-live">LIVE</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="#work-in-progress" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>work-in-progress</span>
+                            <span class="badge-wip">WIP</span>
+                        </a>
+                    </li>
+                </ul>
 
-            <div class="sidebar-category">Interactive Demos</div>
-            <ul class="sidebar-channel-list">
-                <li class="sidebar-channel-item">
-                    <a href="demos/dashboard.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>master-dossier</span>
-                    </a>
-                </li>
-                <li class="sidebar-channel-item">
-                    <a href="demos/wrapped.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>channel-wrapped</span>
-                    </a>
-                </li>
-                <li class="sidebar-channel-item">
-                    <a href="demos/on_this_day.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>on-this-day</span>
-                    </a>
-                </li>
-                <li class="sidebar-channel-item">
-                    <a href="demos/tag_lifecycle_report.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>tag-lifecycles</span>
-                    </a>
-                </li>
-                <li class="sidebar-channel-item">
-                    <a href="demos/circadian_report.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>circadian-habits</span>
-                    </a>
-                </li>
-                <li class="sidebar-channel-item">
-                    <a href="demos/weekly_digest.html" target="_blank" class="sidebar-channel-link">
-                        <span class="hash">#</span>
-                        <span>weekly-digest</span>
-                    </a>
-                </li>
-            </ul>
+                <div class="sidebar-category">Interactive Demos</div>
+                <ul class="sidebar-channel-list">
+                    <li class="sidebar-channel-item">
+                        <a href="demos/dashboard.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>master-dossier</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="demos/wrapped.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>channel-wrapped</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="demos/on_this_day.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>on-this-day</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="demos/tag_lifecycle_report.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>tag-lifecycles</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="demos/circadian_report.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>circadian-habits</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-channel-item">
+                        <a href="demos/weekly_digest.html" target="_blank" class="sidebar-channel-link">
+                            <span class="hash">#</span>
+                            <span>weekly-digest</span>
+                        </a>
+                    </li>
+                </ul>
 
-            <div class="sidebar-category">Source Code &amp; CI</div>
-            <ul class="sidebar-channel-list">
-                <li class="sidebar-channel-item">
-                    <a href="https://github.com/Kimame04/kayabot" target="_blank" rel="noopener noreferrer" class="sidebar-channel-link">
-                        <span class="hash">★</span>
-                        <span>github-repository</span>
-                    </a>
-                </li>
-            </ul>
+                <div class="sidebar-category">Source Code &amp; CI</div>
+                <ul class="sidebar-channel-list">
+                    <li class="sidebar-channel-item">
+                        <a href="https://github.com/Kimame04/kayabot" target="_blank" rel="noopener noreferrer" class="sidebar-channel-link">
+                            <span class="hash">★</span>
+                            <span>github-repository</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
             <!-- Bottom Profile -->
             <div class="sidebar-profile">
@@ -859,7 +883,7 @@
                             🚀 Launch Master Dossier Demo
                         </a>
                         <span class="status-pill" style="padding: 8px 12px; font-size: 0.85rem;">
-                            ✓ 100/100 Tests Passing
+                            ✓ 102/102 Tests Passing
                         </span>
                     </div>
                 </section>
@@ -1105,6 +1129,55 @@ python -m scripts.run_all --open
 
 # 5. Export weekly Sunday-to-Saturday journal digest (JSON & Markdown)
 python -m scripts.export_weekly_digest --week 2026-47</code></pre>
+                    </div>
+                </article>
+
+                <!-- Message 4: Work in Progress -->
+                <article class="discord-message" id="work-in-progress">
+                    <div class="message-avatar">🥪</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">KayaBot</span>
+                            <span class="bot-badge">APP</span>
+                            <span class="message-timestamp">Today at 10:26 AM</span>
+                        </div>
+                        <div class="message-text">
+                            <strong>🚧 Work in Progress &amp; Active Development:</strong>
+                            <br>
+                            Upcoming bot features and capabilities currently under design or staging:
+                        </div>
+
+                        <!-- Embed: Telegram Follow-Up Buttons WIP -->
+                        <div class="discord-embed border-wip">
+                            <div class="embed-author">🛠️ Active Development • Telegram Bot Interaction</div>
+                            <div class="embed-title">
+                                <span>Telegram Bot Follow-Up Buttons</span>
+                            </div>
+                            <div class="embed-description">
+                                <em>Status: Not Yet Implemented</em><br>
+                                Interactive inline follow-up buttons on the Telegram bot (such as contextual follow-up reflection prompts, inline callback queries for deepening thoughts, and thread branching) are <strong>not yet implemented</strong>. The bot currently handles slash commands (<code>/otd</code>, <code>/stats</code>, <code>/random</code>, <code>/tag</code>, <code>/delete</code>, <code>/reconcile</code>) while inline follow-up button actions remain under active development.
+                            </div>
+                            <div class="embed-fields-grid">
+                                <div>
+                                    <div class="embed-field-label">Feature</div>
+                                    <div class="embed-field-value">Interactive Follow-Up Buttons</div>
+                                </div>
+                                <div>
+                                    <div class="embed-field-label">Current State</div>
+                                    <div class="embed-field-value">🚧 Not Yet Implemented (WIP)</div>
+                                </div>
+                                <div>
+                                    <div class="embed-field-label">Target Component</div>
+                                    <div class="embed-field-value"><code>src/bot/handlers.py</code></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reactions -->
+                        <div class="reaction-row">
+                            <div class="reaction-pill"><span>🛠️</span> <span class="reaction-count">8</span></div>
+                            <div class="reaction-pill"><span>⏳</span> <span class="reaction-count">6</span></div>
+                        </div>
                     </div>
                 </article>
 
