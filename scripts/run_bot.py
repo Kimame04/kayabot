@@ -78,17 +78,9 @@ def main() -> None:
     print("Press Ctrl+C to terminate.\n")
 
     offset = None
-    if config.has_discord_relay:
-        from src.bot.discord_relay import flush_pending_relays
-        flushed = flush_pending_relays(
-            config.discord_webhook_url,
-            author_name=config.discord_author_name,
-            author_icon_url=config.discord_author_icon_url,
-            client=client,
-            delta_path=dispatcher.delta_path,
-        )
-        if flushed:
-            print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord on startup.")
+    flushed = dispatcher.flush_pending_discord_relays()
+    if flushed:
+        print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord on startup.")
 
     # Reconcile channel deletions on startup
     if config.channel_id:
@@ -117,10 +109,13 @@ def main() -> None:
         reconcile_thread.start()
         print(f"🔄 [LiveSync] Background deletion reconciliation worker started ({RECONCILE_INTERVAL_SEC}s interval).")
 
+    RELAY_FLUSH_INTERVAL_SEC = 60
+    last_relay_flush = time.monotonic()
     consecutive_errors = 0
     while True:
         try:
             updates = client.get_updates(offset=offset, timeout=20)
+            recovered = consecutive_errors > 0
             consecutive_errors = 0
 
             for update in updates:
@@ -151,6 +146,17 @@ def main() -> None:
                 elif "edited_channel_post" in update:
                     post = update["edited_channel_post"]
                     dispatcher.dispatch_edited_channel_post(post)
+
+            # Flush any queued Discord relays on network recovery or periodic interval
+            now_mono = time.monotonic()
+            if config.has_discord_relay and (recovered or (now_mono - last_relay_flush) >= RELAY_FLUSH_INTERVAL_SEC):
+                last_relay_flush = now_mono
+                try:
+                    flushed = dispatcher.flush_pending_discord_relays()
+                    if flushed:
+                        print(f"📢 [DiscordRelay] Flushed {flushed} backlogged reflection(s) to Discord.")
+                except Exception as e:
+                    print(f"⚠️ [DiscordRelay] Failed to flush pending relays: {e}")
 
         except KeyboardInterrupt:
             print("\n🛑 Shutting down Telegram bot...")

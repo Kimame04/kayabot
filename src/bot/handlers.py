@@ -387,6 +387,21 @@ class BotDispatcher:
 
             return reconciled
 
+    def flush_pending_discord_relays(self) -> int:
+        """Flush any queued failed Discord relays if webhook relay is configured."""
+        if not self.config.has_discord_relay:
+            return 0
+        from src.bot.discord_relay import flush_pending_relays
+
+        with self._lock:
+            return flush_pending_relays(
+                self.config.discord_webhook_url,
+                author_name=self.config.discord_author_name,
+                author_icon_url=self.config.discord_author_icon_url,
+                client=self.client,
+                delta_path=self.delta_path,
+            )
+
     def handle_reconcile(self, chat_id: int | str) -> None:
         """Run active channel reconciliation probe to detect and purge deleted channel posts."""
         if not self.config.channel_id:
@@ -490,7 +505,6 @@ class BotDispatcher:
             from src.bot.discord_relay import (
                 delete_discord_relay,
                 edit_discord_relay,
-                flush_pending_relays,
                 queue_pending_relay,
                 send_discord_relay,
             )
@@ -581,13 +595,7 @@ class BotDispatcher:
 
             # Case 3: Post is a NEW entry (or previously un-relayed / re-dispatched edited entry)
             # Flush any prior backlog
-            flush_pending_relays(
-                self.config.discord_webhook_url,
-                author_name=self.config.discord_author_name,
-                author_icon_url=self.config.discord_author_icon_url,
-                client=self.client,
-                delta_path=self.delta_path,
-            )
+            self.flush_pending_discord_relays()
 
             relay_result = send_discord_relay(
                 self.config.discord_webhook_url,

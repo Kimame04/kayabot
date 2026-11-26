@@ -399,6 +399,39 @@ class TestDiscordRelay(unittest.TestCase):
         self.assertEqual(req.get_method(), "DELETE")
         self.assertEqual(req.full_url, "https://discord.com/api/webhooks/123/token/messages/987654321012345678")
 
+    @patch("src.bot.discord_relay.flush_pending_relays", return_value=2)
+    def test_dispatcher_flush_pending_discord_relays(self, mock_flush):
+        import pandas as pd
+        from src.bot.config import BotConfig
+        from src.bot.handlers import BotDispatcher
+
+        cfg = BotConfig(
+            bot_token="tok",
+            discord_webhook_url="https://discord.com/api/webhooks/123/token",
+            discord_author_name="Kieran",
+            discord_author_icon_url="https://example.com/icon.png",
+        )
+        dispatcher = BotDispatcher(MagicMock(), cfg, pd.DataFrame())
+        self.assertEqual(dispatcher.flush_pending_discord_relays(), 2)
+        mock_flush.assert_called_once_with(
+            "https://discord.com/api/webhooks/123/token",
+            author_name="Kieran",
+            author_icon_url="https://example.com/icon.png",
+            client=dispatcher.client,
+            delta_path=dispatcher.delta_path,
+        )
+
+    @patch("src.bot.discord_relay.flush_pending_relays")
+    def test_dispatcher_flush_pending_discord_relays_disabled(self, mock_flush):
+        import pandas as pd
+        from src.bot.config import BotConfig
+        from src.bot.handlers import BotDispatcher
+
+        cfg = BotConfig(bot_token="tok", discord_webhook_url=None)
+        dispatcher = BotDispatcher(MagicMock(), cfg, pd.DataFrame())
+        self.assertEqual(dispatcher.flush_pending_discord_relays(), 0)
+        mock_flush.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
